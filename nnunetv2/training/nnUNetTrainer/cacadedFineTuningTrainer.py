@@ -64,28 +64,13 @@ from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
-from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+from nnunetv2.utilities.plans_handling.plans_handler import CascadePlansManager
 
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        # From https://grugbrain.dev/. Worth a read ya big brains ;-)
-
-        # apex predator of grug is complexity
-        # complexity bad
-        # say again:
-        # complexity very bad
-        # you say now:
-        # complexity very, very bad
-        # given choice between complexity or one on one against t-rex, grug take t-rex: at least grug see t-rex
-        # complexity is spirit demon that enter codebase through well-meaning but ultimately very clubbable non grug-brain developers and project managers who not fear complexity spirit demon or even know about sometime
-        # one day code base understandable and grug can get work done, everything good!
-        # next day impossible: complexity demon spirit has entered code and very dangerous situation!
-
-        # OK OK I am guilty. But I tried.
-        # https://www.osnews.com/images/comics/wtfm.jpg
-        # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
+        # 
 
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
@@ -110,9 +95,9 @@ class nnUNetTrainer(object):
         self.my_init_kwargs = {}
         for k in inspect.signature(self.__init__).parameters.keys():
             self.my_init_kwargs[k] = locals()[k]
-
+        
         ###  Saving all the init args into class variables for later access
-        self.plans_manager = PlansManager(plans)
+        self.plans_manager = CascadePlansManager(plans) # cascaded plan manager also has a list of plans for each network in the cascade
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
         self.configuration_name = configuration
         self.dataset_json = dataset_json
@@ -1381,3 +1366,5 @@ class nnUNetTrainer(object):
             self.on_epoch_end()
 
         self.on_train_end()
+
+
