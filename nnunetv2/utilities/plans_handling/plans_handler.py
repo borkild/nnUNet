@@ -334,6 +334,51 @@ class CascadePlansManager(object):
         for netIdx in range(self.plans["number_of_networks"]):
             self.network_plans.append( PlansManager(self.plans["network_" + str(netIdx)]["plan_file_path"]) ) # for now we assume to be using the default plans manager
         
+        
+    def __repr__(self):
+        return self.plans.__repr__()
+
+    def _internal_resolve_configuration_inheritance(self, configuration_name: str,
+                                                    visited: Tuple[str, ...] = None) -> dict:
+        if configuration_name not in self.plans['configurations'].keys():
+            raise ValueError(f'The configuration {configuration_name} does not exist in the plans I have. Valid '
+                             f'configuration names are {list(self.plans["configurations"].keys())}.')
+        configuration = deepcopy(self.plans['configurations'][configuration_name])
+        if 'inherits_from' in configuration:
+            parent_config_name = configuration['inherits_from']
+
+            if visited is None:
+                visited = (configuration_name,)
+            else:
+                if parent_config_name in visited:
+                    raise RuntimeError(f"Circular dependency detected. The following configurations were visited "
+                                       f"while solving inheritance (in that order!): {visited}. "
+                                       f"Current configuration: {configuration_name}. Its parent configuration "
+                                       f"is {parent_config_name}.")
+                visited = (*visited, configuration_name)
+
+            base_config = self._internal_resolve_configuration_inheritance(parent_config_name, visited)
+            base_config.update(configuration)
+            configuration = base_config
+        return configuration
+
+    # this function grabs a list of the configurations for the networks in the cascade
+    @lru_cache(maxsize=10)
+    def get_configuration(self): # no configuration name is needed, as the config to use is selected in the plan file
+        # get list of config names
+        configNameList = self.get_chosen_configs()
+        networkConfigManagers = []
+        # iterate through list, checking to see if configs exist in each network plan
+        for netIdx in range(len(self.network_plans)):
+            configuration_name = configNameList[netIdx]
+            if configuration_name not in self.network_plans[netIdx]['configurations'].keys():
+                raise RuntimeError(f"Requested configuration {configuration_name} not found in plans. "
+                                f"Available configurations: {list(self.plans['configurations'].keys())}")
+
+            configuration_dict = self._internal_resolve_configuration_inheritance(configuration_name)
+            # again, for now we assume to only be using the basic config manager
+            networkConfigManagers.append( ConfigurationManager(configuration_dict) )
+        return networkConfigManagers
     # below are functions meant to emulate those available in the basic plans manager, but they output lists,
     # with each entry corresponding to each value
     
@@ -499,8 +544,6 @@ class CascadePlansManager(object):
                 return self.network_plans[finalIdx]['foreground_intensity_properties_by_modality']
         return self.network_plans[finalIdx]['foreground_intensity_properties_per_channel']
     
-
-
 
 if __name__ == '__main__':
     from nnunetv2.paths import nnUNet_preprocessed
