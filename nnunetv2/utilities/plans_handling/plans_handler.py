@@ -382,6 +382,16 @@ class CascadePlansManager(object):
     # below are functions meant to emulate those available in the basic plans manager, but they output lists,
     # with each entry corresponding to each value
     
+    # function to get number of input channels for each network
+    def get_num_input_channels(self, index: int = None):
+        if index == None:
+            numChannels = []
+            for netIdx in range(len(self.plans["number_of_networks"])):
+                numChannels.append(self.plans["network_properties"]["network_"+str(netIdx)]["num_input_channels"])
+        else:
+            numChannels = self.plans["network_properties"]["network_"+str(index)]["num_input_channels"]
+        return numChannels
+
     # the functions that output lists are not properties, as we allow an index parameter to be passed
     # which corresponds with the index of the network in the cascade
     

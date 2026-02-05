@@ -191,7 +191,19 @@ class nnUNetTrainer(object):
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
                                                                    self.dataset_json)
 
-            self.network = self.build_network_architecture(
+            networks = []
+            # iterate through networks in plan file, building them individually according to their plan file
+            for netIdx in range(self.plans_manager.plans["number_of_networks"]):
+                networks.append( self.build_individual_network_architecture(
+                    self.configuration_manager[netIdx].network_arch_class_name,
+                    self.configuration_manager[netIdx].network_arch_init_kwargs,
+                    self.configuration_manager[netIdx].network_arch_init_kwargs_req_import
+                
+                ) )
+
+            # hand list of networks to build our cascade, along with additional options in the plan file
+
+            self.network = self.build_individual_network_architecture(
                 self.configuration_manager.network_arch_class_name,
                 self.configuration_manager.network_arch_init_kwargs,
                 self.configuration_manager.network_arch_init_kwargs_req_import,
