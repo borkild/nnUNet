@@ -325,6 +325,183 @@ class PlansManager(object):
         return self.plans['foreground_intensity_properties_per_channel']
 
 
+class CascadePlansManager(object):
+    def __init__(self, plan_file_or_dict: str | dict):
+        # load in plan -- can give string to location of plan file, or a dictionary with the plan file in it
+        self.plans = plan_file_or_dict if isinstance(plan_file_or_dict, dict) else load_json(plan_file_or_dict)
+        # now we'll also load and save a list of plans from the given files
+        self.network_plans = []
+        for netIdx in range(self.plans["number_of_networks"]):
+            self.network_plans.append( PlansManager(self.plans["network_" + str(netIdx)]["plan_file_path"]) ) # for now we assume to be using the default plans manager
+        
+    # below are functions meant to emulate those available in the basic plans manager, but they output lists,
+    # with each entry corresponding to each value
+    
+    # the functions that output lists are not properties, as we allow an index parameter to be passed
+    # which corresponds with the index of the network in the cascade
+    
+    @property
+    def dataset_name(self) -> str:
+        return self.plans['dataset_name']
+    
+
+    def networks_dataset_name(self, index: int = None) -> list[str] | str:
+        if index == None:
+            dataset_names = []
+            for netIdx in range(len(self.network_plans)):
+                dataset_names.append(self.network_plans[netIdx]["dataset_name"])
+        else:
+            dataset_names = self.network_plans[index]["dataset_name"]
+                
+        return dataset_names
+
+    @property
+    def plans_name(self) -> str:
+        return self.plans['plans_name']
+    
+    def networks_plans_name(self, index: int = None) -> list[str] | str:
+        if index == None:
+            plan_names = []
+            for netIdx in range(len(self.network_plans)):
+                plan_names.append(self.network_plans[netIdx]["plans_name"])
+        else:
+            plan_names = self.network_plans[index]["plans_name"]
+        return plan_names
+
+    # for now, we alter these properties to just grab the value from the final network in our cascade
+    # we also have functions that mirror the originals, with the format described above
+    @property
+    def original_median_spacing_after_transp(self) -> List[float]:
+        finalIdx = len(self.network_plans)-1
+        return self.netowrk_plans[finalIdx]['original_median_spacing_after_transp']
+    
+    def networks_original_median_spacing_after_transp(self, index: int = None) -> List[float] | List[List[float]]:
+        if index == None:
+            spacing = []
+            for netIdx in range(len(self.network_plans)):
+                spacing.append(self.network_plans[netIdx]["original_median_spacing_after_transp"])
+        else:
+            spacing = self.network_plans[index]["original_median_spacing_after_transp"]
+        return spacing
+
+    @property
+    def original_median_shape_after_transp(self) -> List[float]:
+        finalIdx = len(self.network_plans)-1
+        return self.network_plans[finalIdx]['original_median_shape_after_transp']
+    
+    
+    def networks_original_median_shape_after_transp(self, index: int = None) -> List[float] | List[List[float]]:
+        if index == None:
+            medShape = []
+            for netIdx in range(len(self.network_plans)):
+                medShape.append(self.network_plans[netIdx]["original_median_shape_after_transp"])
+        else:
+            medShape = self.network_plans[index]["original_median_shape_after_transp"]
+        return medShape
+
+    
+    # we keep the image reader/writer as a property and in our new plan files
+    @property
+    @lru_cache(maxsize=1)
+    def image_reader_writer_class(self) -> Type[BaseReaderWriter]:
+        return recursive_find_reader_writer_by_name(self.plans['image_reader_writer'])
+
+    # back to returning only last in cascade for property -- in our case I don't think it will matter as these are all the same for each network
+    # but an adaptation to another cascade with different transposes and properties at each step may take some additional doing
+    @property
+    def transpose_forward(self) -> List[int]:
+        finalIdx = len(self.network_plans)-1
+        return self.network_plans[finalIdx]['transpose_forward']
+    
+    def networks_transpose_forward(self, index: int = None) -> List[int] | List[List[int]]:
+        if index == None:
+            tp_forward = []
+            for netIdx in range(len(self.network_plans)):
+                tp_forward.append(self.network_plans[netIdx]["transpose_forward"]) 
+        else:
+            tp_forward = self.network_plans[index]["transpose_forward"]
+        return tp_forward
+
+    @property
+    def transpose_backward(self) -> List[int]:
+        finalIdx = len(self.network_plans)-1
+        return self.network_plans[finalIdx]['transpose_backward']
+    
+    
+    def networks_transpose_backward(self, index: int = None) -> List[int] | List[List[int]]:
+        if index == None:
+            tp_back = []
+            for netIdx in range(len(self.network_plans)):
+                tp_back.append(self.network_plans[netIdx]["transpose_backward"]) 
+        else:
+            tp_back = self.network_plans[index]["transpose_backward"]
+        return tp_back
+
+    @property
+    def available_configurations(self) -> List[str]:
+        return list(self.plans['configurations'].keys())
+    
+    # again, added to mirror above configs, but in reality we will have already chosen the proper network configuration 
+    # we can get those network configs with the function get_chosen_configs
+    def network_available_configurations(self, index: int = None) -> List[str] | List[List[str]]:
+        if index == None:
+            configs = []
+            for netIdx in range(len(self.network_plans)):
+                configs.append(self.network_plans[netIdx]["configurations"].keys())
+        else:
+            configs = self.network_plans[index]["configurations"].keys()
+        return configs
+    
+    def get_chosen_configs(self, index: int = None) -> str | List[str]:
+        if index == None:
+            config = []
+            for netIdx in range(self.plans["number_of_networks"]):
+                config.append( self.plans["network_properties"]["network_" + str(netIdx)] )
+        else:
+            config = self.plans["network_properties"]["network_"+str(index)]
+        return config
+        
+
+    # these last few functions grab experiment and label managers
+    # in our case, we only used the default label and experiment managers for all networks, so we just grab the last network's manager
+    # This would be something to change in the future for full integration in the framework, but for now I don't want to mess
+    # with figuring out how to merge different label managers and decide if they will work together
+    @property
+    @lru_cache(maxsize=1)
+    def experiment_planner_class(self) -> Type[ExperimentPlanner]:
+        planner_name = self.experiment_planner_name
+        experiment_planner = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
+                                                         planner_name,
+                                                         current_module="nnunetv2.experiment_planning")
+        return experiment_planner
+
+    @property
+    def experiment_planner_name(self) -> str:
+        finalIdx = len(self.network_plans)-1
+        return self.network_plans[finalIdx]['experiment_planner_used']
+
+    @property
+    @lru_cache(maxsize=1)
+    def label_manager_class(self) -> Type[LabelManager]:
+        finalIdx = len(self.network_plans)-1
+        return get_labelmanager_class_from_plans(self.network_plans[finalIdx])
+
+    def get_label_manager(self, dataset_json: dict, **kwargs) -> LabelManager:
+        return self.label_manager_class(label_dict=dataset_json['labels'],
+                                        regions_class_order=dataset_json.get('regions_class_order'),
+                                        **kwargs)
+
+    @property
+    def foreground_intensity_properties_per_channel(self) -> dict:
+        finalIdx = len(self.network_plans)-1
+        if 'foreground_intensity_properties_per_channel' not in self.network_plans[finalIdx].keys():
+            if 'foreground_intensity_properties_by_modality' in self.network_plans[finalIdx].keys():
+                return self.network_plans[finalIdx]['foreground_intensity_properties_by_modality']
+        return self.network_plans[finalIdx]['foreground_intensity_properties_per_channel']
+    
+
+
+
 if __name__ == '__main__':
     from nnunetv2.paths import nnUNet_preprocessed
     from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
