@@ -572,7 +572,127 @@ class CascadePlansManager(object):
     
 
 class CascadeConfigurationManager(object):
-    pass
+    def __init__(self, configuration_dict: dict):
+        self.configuration = configuration_dict
+
+        # this isn't backwards compatible, so if architecture isn't there, then
+        # we throw an error
+        if 'architecture' not in self.configuration.keys():
+            raise ValueError("architecture not found in cascade_config, please check your plan file")
+
+    def __repr__(self):
+        return self.configuration.__repr__()
+
+    @property
+    def data_identifier(self) -> str:
+        return self.configuration['data_identifier']
+
+    @property
+    def preprocessor_name(self) -> str:
+        return self.configuration['preprocessor_name']
+
+    @property
+    @lru_cache(maxsize=1)
+    def preprocessor_class(self) -> Type[DefaultPreprocessor]:
+        preprocessor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "preprocessing"),
+                                                         self.preprocessor_name,
+                                                         current_module="nnunetv2.preprocessing")
+        return preprocessor_class
+
+    @property
+    def batch_size(self) -> int:
+        return self.configuration['batch_size']
+
+    @property
+    def patch_size(self) -> List[int]:
+        return self.configuration['patch_size']
+
+    @property
+    def median_image_size_in_voxels(self) -> List[int]:
+        return self.configuration['median_image_size_in_voxels']
+
+    @property
+    def spacing(self) -> List[float]:
+        return self.configuration['spacing']
+
+    @property
+    def normalization_schemes(self) -> List[str]:
+        return self.configuration['normalization_schemes']
+
+    @property
+    def use_mask_for_norm(self) -> List[bool]:
+        return self.configuration['use_mask_for_norm']
+
+    @property
+    def network_arch_class_name(self) -> str:
+        return self.configuration['architecture']['network_class_name']
+
+    @property
+    def network_arch_init_kwargs(self) -> dict:
+        return self.configuration['architecture']['arch_kwargs']
+
+    @property
+    def network_arch_init_kwargs_req_import(self) -> Union[Tuple[str, ...], List[str]]:
+        return self.configuration['architecture']['_kw_requires_import']
+
+    @property
+    def pool_op_kernel_sizes(self) -> Tuple[Tuple[int, ...], ...]:
+        return self.configuration['architecture']['arch_kwargs']['strides']
+
+    @property
+    @lru_cache(maxsize=1)
+    def resampling_fn_data(self) -> Callable[
+        [Union[torch.Tensor, np.ndarray],
+         Union[Tuple[int, ...], List[int], np.ndarray],
+         Union[Tuple[float, ...], List[float], np.ndarray],
+         Union[Tuple[float, ...], List[float], np.ndarray]
+         ],
+        Union[torch.Tensor, np.ndarray]]:
+        fn = recursive_find_resampling_fn_by_name(self.configuration['resampling_fn_data'])
+        fn = partial(fn, **self.configuration['resampling_fn_data_kwargs'])
+        return fn
+
+    @property
+    @lru_cache(maxsize=1)
+    def resampling_fn_probabilities(self) -> Callable[
+        [Union[torch.Tensor, np.ndarray],
+         Union[Tuple[int, ...], List[int], np.ndarray],
+         Union[Tuple[float, ...], List[float], np.ndarray],
+         Union[Tuple[float, ...], List[float], np.ndarray]
+         ],
+        Union[torch.Tensor, np.ndarray]]:
+        fn = recursive_find_resampling_fn_by_name(self.configuration['resampling_fn_probabilities'])
+        fn = partial(fn, **self.configuration['resampling_fn_probabilities_kwargs'])
+        return fn
+
+    @property
+    @lru_cache(maxsize=1)
+    def resampling_fn_seg(self) -> Callable[
+        [Union[torch.Tensor, np.ndarray],
+         Union[Tuple[int, ...], List[int], np.ndarray],
+         Union[Tuple[float, ...], List[float], np.ndarray],
+         Union[Tuple[float, ...], List[float], np.ndarray]
+         ],
+        Union[torch.Tensor, np.ndarray]]:
+        fn = recursive_find_resampling_fn_by_name(self.configuration['resampling_fn_seg'])
+        fn = partial(fn, **self.configuration['resampling_fn_seg_kwargs'])
+        return fn
+
+    @property
+    def batch_dice(self) -> bool:
+        return self.configuration['batch_dice']
+
+    @property
+    def next_stage_names(self) -> Union[List[str], None]:
+        ret = self.configuration.get('next_stage')
+        if ret is not None:
+            if isinstance(ret, str):
+                ret = [ret]
+        return ret
+
+    @property
+    def previous_stage_name(self) -> Union[str, None]:
+        return self.configuration.get('previous_stage')
 
 
 if __name__ == '__main__':
