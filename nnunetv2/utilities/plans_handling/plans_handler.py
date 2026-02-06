@@ -570,6 +570,10 @@ class CascadePlansManager(object):
         return self.network_plans[finalIdx]['foreground_intensity_properties_per_channel']
     
 
+class CascadeConfigurationManager(object):
+    pass
+
+
 if __name__ == '__main__':
     from nnunetv2.paths import nnUNet_preprocessed
     from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name

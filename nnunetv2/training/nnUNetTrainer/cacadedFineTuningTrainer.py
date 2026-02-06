@@ -66,6 +66,9 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import CascadePlansManager
 
+# we just import this ourselves, as we expect only to use a cascade with this trainer
+from dynamic_network_architectures.architectures.cascaded_networks import cascaded_networks
+
 
 class nnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
@@ -194,23 +197,23 @@ class nnUNetTrainer(object):
             networks = []
             # iterate through networks in plan file, building them individually according to their plan file
             for netIdx in range(self.plans_manager.plans["number_of_networks"]):
+                num_inputChannels = self.plans_manager.get_num_input_channels[netIdx]
                 networks.append( self.build_individual_network_architecture(
                     self.configuration_manager[netIdx].network_arch_class_name,
                     self.configuration_manager[netIdx].network_arch_init_kwargs,
-                    self.configuration_manager[netIdx].network_arch_init_kwargs_req_import
-                
+                    self.configuration_manager[netIdx].network_arch_init_kwargs_req_import,
+                    num_inputChannels,
+                    self.label_manager.num_segmentation_heads,
+                    self.enable_deep_supervision
                 ) )
+                # load weights for the network
+                
+                # add network to list of networks
+                
 
             # hand list of networks to build our cascade, along with additional options in the plan file
-
-            self.network = self.build_individual_network_architecture(
-                self.configuration_manager.network_arch_class_name,
-                self.configuration_manager.network_arch_init_kwargs,
-                self.configuration_manager.network_arch_init_kwargs_req_import,
-                self.num_input_channels,
-                self.label_manager.num_segmentation_heads,
-                self.enable_deep_supervision
-            ).to(self.device)
+            self.network = self.build_cascade(networks)
+            
             # compile network for free speedup
             if self._do_i_compile():
                 self.print_to_log_file('Using torch.compile...')
@@ -297,8 +300,15 @@ class nnUNetTrainer(object):
             dct['cudnn_version'] = cudnn_version
             save_json(dct, join(self.output_folder, "debug.json"))
 
+    
+    # this function handles building our cascade
+    def build_network_architecture(self, networks: list[nn.Module]):
+        return cascaded_networks(networks, **self.plans_manager.get_cascade_args)
+    
+    
+    # this is the same as build_network_architecture in the basic nnUnetTrainer
     @staticmethod
-    def build_network_architecture(architecture_class_name: str,
+    def build_individual_network_architecture(architecture_class_name: str,
                                    arch_init_kwargs: dict,
                                    arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
                                    num_input_channels: int,
