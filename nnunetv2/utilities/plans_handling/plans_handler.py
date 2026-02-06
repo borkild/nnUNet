@@ -383,7 +383,7 @@ class CascadePlansManager(object):
     # with each entry corresponding to each value
     
     # function to get number of input channels for each network
-    def get_num_input_channels(self, index: int = None):
+    def get_num_input_channels(self, index: int = None) -> int | list[int]: # list is modern python way of specifying list type (vs List)
         if index == None:
             numChannels = []
             for netIdx in range(len(self.plans["number_of_networks"])):
@@ -391,7 +391,22 @@ class CascadePlansManager(object):
         else:
             numChannels = self.plans["network_properties"]["network_"+str(index)]["num_input_channels"]
         return numChannels
-
+    
+    # function to get number of output classes (number of channels is the (number of classes + 1)) for each network
+    def get_num_output_classes(self, index:int = None) -> int | list[int]:
+        if index == None:
+            numChannels = []
+            for netIdx in range(len(self.plans["number_of_networks"])):
+                numChannels.append(self.plans["network_properties"]["network_"+str(netIdx)]["num_output_classes"])
+        else:
+            numChannels = self.plans["network_properties"]["network_"+str(index)]["num_output_classes"]
+        return numChannels
+    
+    # returns list of cascade properties necessary for generating the cascade class
+    @property
+    def get_cascade_args(self) -> dict:
+        return self.plans["cascade_properties"]
+        
     # the functions that output lists are not properties, as we allow an index parameter to be passed
     # which corresponds with the index of the network in the cascade
     
@@ -399,7 +414,7 @@ class CascadePlansManager(object):
     def dataset_name(self) -> str:
         return self.plans['dataset_name']
     
-
+    
     def networks_dataset_name(self, index: int = None) -> list[str] | str:
         if index == None:
             dataset_names = []
