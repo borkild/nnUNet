@@ -362,9 +362,15 @@ class CascadePlansManager(object):
             configuration = base_config
         return configuration
 
+    # this function grabs the configuration for the whole cascade
+    @lru_cache(maxsize=10)
+    def get_configuration(self):
+        pass
+    
+    
     # this function grabs a list of the configurations for the networks in the cascade
     @lru_cache(maxsize=10)
-    def get_configuration(self): # no configuration name is needed, as the config to use is selected in the plan file
+    def get_individual_configuration(self): # no configuration name is needed, as the config to use is selected in the plan file
         # get list of config names
         configNameList = self.get_chosen_configs()
         networkConfigManagers = []
@@ -401,11 +407,6 @@ class CascadePlansManager(object):
         else:
             numChannels = self.plans["network_properties"]["network_"+str(index)]["num_output_classes"]
         return numChannels
-    
-    # returns list of cascade properties necessary for generating the cascade class
-    @property
-    def get_cascade_args(self) -> dict:
-        return self.plans["cascade_properties"]
         
     # the functions that output lists are not properties, as we allow an index parameter to be passed
     # which corresponds with the index of the network in the cascade
