@@ -629,7 +629,7 @@ class CascadeConfigurationManager(object):
 
     @property
     def network_arch_init_kwargs(self) -> dict:
-        return self.configuration['architecture']['arch_kwargs']
+        return self.configuration['arch_kwargs']
 
     @property
     def network_arch_init_kwargs_req_import(self) -> Union[Tuple[str, ...], List[str]]:
