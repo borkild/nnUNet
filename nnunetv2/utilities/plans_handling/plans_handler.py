@@ -364,7 +364,9 @@ class CascadePlansManager(object):
 
     # this function grabs the configuration for the whole cascade -- it always lives in "cascade_config" in the plan file
     @lru_cache(maxsize=10)
-    def get_configuration(self):
+    def get_configuration(self, configuration_name: str):
+        if not "cascade" in configuration_name:
+            raise ValueError("This function is only for cascaded networks, but that is not the selected config. Please check your plans file.")
         return CascadeConfigurationManager(self.plans["cascade_config"])
     
     
@@ -583,9 +585,26 @@ class CascadeConfigurationManager(object):
     def __repr__(self):
         return self.configuration.__repr__()
 
-    # to do: put functions that grab individual architecture details here
-    
-    
+    # this function returns a list of configurations, with each entry corresponding to each network in the cascade
+    @property
+    def get_network_configs(self):
+        planList = self.get_network_plans
+        configList = []
+        for netIdx in range(len(planList)):
+            configList.append( planList.get_configuration(planList[netIdx]) )
+
+        return configList
+        
+    # this function returns a list of plans for each network in the cascade
+    @property
+    def get_network_plans(self) -> list[PlansManager]:
+        planList = []
+        for netIdx in range(self.configuration["number_of_networks"]):
+            planList.append( PlansManager(self.configuration["architecture"]["network_"+str(netIdx)]["plan_file_path"]) )
+
+        return planList
+
+
     @property
     def data_identifier(self) -> str:
         return self.configuration['data_identifier']
