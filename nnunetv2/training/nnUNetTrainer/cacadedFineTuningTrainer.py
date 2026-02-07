@@ -101,8 +101,9 @@ class cascadednnUNetTrainer(object):
         
         ###  Saving all the init args into class variables for later access
         self.plans_manager = CascadePlansManager(plans) # cascaded plan manager also has a list of plans for each network in the cascade
+        self.configuration_manager = self.plans_manager.get_configuration(configuration)
         # get individual network configurations
-        self.network_configuration_manager = self.plans_manager.get_individual_configuration(configuration)
+        self.network_configuration_manager = self.configuration_manager.get_network_configs
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
@@ -314,8 +315,29 @@ class cascadednnUNetTrainer(object):
         if architecture_class_name != "dynamic_network_architectures.architectures.cascaded_networks.cascaded_networks" or not "cascaded_networks" in architecture_class_name:
             raise ValueError("Using cascaded trainer, we expect a cascaded network architecture")  
         
-        # iterate through self.plansmanager
-        
+        # grab individual configs from configs manager
+        network_config_list = self.configuration_manager.get_network_configs
+        # grab network saved weight locations
+        network_weight_path = self.configuration_manager.get_network_weight_paths
+
+        networks = []
+        # iterate through configs, building list of networks
+        for netIdx in range(len(network_config_list)):
+            num_inputChannels = self.configuration_manager.get_num_input_channels[netIdx]
+            cur_network = self.build_individual_network_architecture(
+                self.configuration_manager[netIdx].network_arch_class_name,
+                self.configuration_manager[netIdx].network_arch_init_kwargs,
+                self.configuration_manager[netIdx].network_arch_init_kwargs_req_import,
+                num_inputChannels,
+                self.label_manager.num_segmentation_heads,
+                self.enable_deep_supervision
+            )
+            # load in weights from previous training
+            checkpoint = torch.load(network_weight_path[netIdx], map_location=torch.device('cpu'), weights_only=False)
+            cur_network.load_state_dict(checkpoint["network_weights"])
+            # out network in list
+            networks.append(cur_network)
+
         return cascaded_networks(networks, **self.plans_manager.get_cascade_args)
     
     

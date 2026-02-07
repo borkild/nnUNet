@@ -390,16 +390,6 @@ class CascadePlansManager(object):
     # below are functions meant to emulate those available in the basic plans manager, but they output lists,
     # with each entry corresponding to each value
     
-    # function to get number of input channels for each network
-    def get_num_input_channels(self, index: int = None) -> int | list[int]: # list is modern python way of specifying list type (vs List)
-        if index == None:
-            numChannels = []
-            for netIdx in range(len(self.plans["number_of_networks"])):
-                numChannels.append(self.plans["network_properties"]["network_"+str(netIdx)]["num_input_channels"])
-        else:
-            numChannels = self.plans["network_properties"]["network_"+str(index)]["num_input_channels"]
-        return numChannels
-    
     # function to get number of output classes (number of channels is the (number of classes + 1)) for each network
     def get_num_output_classes(self, index:int = None) -> int | list[int]:
         if index == None:
@@ -587,7 +577,7 @@ class CascadeConfigurationManager(object):
 
     # this function returns a list of configurations, with each entry corresponding to each network in the cascade
     @property
-    def get_network_configs(self):
+    def get_network_configs(self) -> list[ConfigurationManager]:
         planList = self.get_network_plans
         configList = []
         for netIdx in range(len(planList)):
@@ -603,6 +593,27 @@ class CascadeConfigurationManager(object):
             planList.append( PlansManager(self.configuration["architecture"]["network_"+str(netIdx)]["plan_file_path"]) )
 
         return planList
+
+
+    # this function gets the list of paths to each network's weights from individual training
+    @property
+    def get_network_weight_paths(self):
+        weight_path_list = []
+        for netIdx in range(self.configuration["number_of_networks"]):
+            weight_path_list.append( self.configuration["architecture"]["network_"+str(netIdx)]["weight_save_location"] )
+
+        return weight_path_list
+
+
+    # function to get number of input channels for each network
+    def get_num_input_channels(self, index: int = None) -> int | list[int]: # list is modern python way of specifying list type (vs List)
+        if index == None:
+            numChannels = []
+            for netIdx in range(len(self.configuration["number_of_networks"])):
+                numChannels.append(self.configuration["architecture"]["network_"+str(netIdx)]["num_input_channels"])
+        else:
+            numChannels = self.plans["architecture"]["network_"+str(netIdx)]["num_input_channels"]
+        return numChannels
 
 
     @property
