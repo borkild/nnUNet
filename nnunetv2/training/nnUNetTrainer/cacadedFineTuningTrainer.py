@@ -70,7 +70,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import CascadePlansManager
 from dynamic_network_architectures.architectures.cascaded_networks import cascaded_networks
 
 
-class nnUNetTrainer(object):
+class cascadednnUNetTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         # 
@@ -101,7 +101,8 @@ class nnUNetTrainer(object):
         
         ###  Saving all the init args into class variables for later access
         self.plans_manager = CascadePlansManager(plans) # cascaded plan manager also has a list of plans for each network in the cascade
-        self.configuration_manager = self.plans_manager.get_configuration(configuration)
+        # get individual network configurations
+        self.network_configuration_manager = self.plans_manager.get_individual_configuration(configuration)
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
@@ -302,11 +303,24 @@ class nnUNetTrainer(object):
 
     
     # this function handles building our cascade
-    def build_network_architecture(self, networks: list[nn.Module]):
+    def build_network_architecture(self,
+                                   architecture_class_name: str,
+                                   arch_init_kwargs: dict,
+                                   arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+                                   num_input_channels: int,
+                                   num_output_channels: int,
+                                   enable_deep_supervision: bool = True):
+        # check to make sure architecture class name matches cascaded architecture, anything else means the wrong options have been selected
+        if architecture_class_name != "dynamic_network_architectures.architectures.cascaded_networks.cascaded_networks" or not "cascaded_networks" in architecture_class_name:
+            raise ValueError("Using cascaded trainer, we expect a cascaded network architecture")  
+        
+        # iterate through self.plansmanager
+        
         return cascaded_networks(networks, **self.plans_manager.get_cascade_args)
     
     
     # this is the same as build_network_architecture in the basic nnUnetTrainer
+    # here it builds the individual networks in the cascade
     @staticmethod
     def build_individual_network_architecture(architecture_class_name: str,
                                    arch_init_kwargs: dict,

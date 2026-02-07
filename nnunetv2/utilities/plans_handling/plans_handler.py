@@ -362,10 +362,10 @@ class CascadePlansManager(object):
             configuration = base_config
         return configuration
 
-    # this function grabs the configuration for the whole cascade
+    # this function grabs the configuration for the whole cascade -- it always lives in "cascade_config" in the plan file
     @lru_cache(maxsize=10)
     def get_configuration(self):
-        pass
+        return CascadeConfigurationManager(self.plans["cascade_config"])
     
     
     # this function grabs a list of the configurations for the networks in the cascade
@@ -575,7 +575,7 @@ class CascadeConfigurationManager(object):
     def __init__(self, configuration_dict: dict):
         self.configuration = configuration_dict
 
-        # this isn't backwards compatible, so if architecture isn't there, then
+        # this isn't backwards compatible with v1, so if architecture isn't there, then
         # we throw an error
         if 'architecture' not in self.configuration.keys():
             raise ValueError("architecture not found in cascade_config, please check your plan file")
@@ -583,6 +583,9 @@ class CascadeConfigurationManager(object):
     def __repr__(self):
         return self.configuration.__repr__()
 
+    # to do: put functions that grab individual architecture details here
+    
+    
     @property
     def data_identifier(self) -> str:
         return self.configuration['data_identifier']
