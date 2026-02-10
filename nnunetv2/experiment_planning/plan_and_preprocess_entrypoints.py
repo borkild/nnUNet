@@ -173,16 +173,22 @@ def plan_and_preprocess_entry():
     parser.add_argument('--verbose', required=False, action='store_true',
                         help='Set this to print a lot of stuff. Useful for debugging. Will disable progress bar! '
                              'Recommended for cluster environments')
+    
+    # additional arguments for different tasks with cascade
+    parser.add_argument('--cascade', required=False, default=False, 
+                        help="Set this to interpret a list of datasets as a cascade of networks/tasks")
+
+
     args = parser.parse_args()
 
     # fingerprint extraction
     print("Fingerprint extraction...")
-    extract_fingerprints(args.d, args.fpe, args.npfp, args.verify_dataset_integrity, args.clean, args.verbose)
+    extract_fingerprints(args.d, args.fpe, args.npfp, args.verify_dataset_integrity, args.clean, args.verbose, args.cascade)
 
     # experiment planning
     print('Experiment planning...')
     plans_identifier = plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name,
-                                        args.overwrite_target_spacing, args.overwrite_plans_name)
+                                        args.overwrite_target_spacing, args.overwrite_plans_name, args.cascade)
 
     # manage default np
     if args.np is None:
