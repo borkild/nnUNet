@@ -23,7 +23,6 @@ from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 class CascadeExperimentPlanner(object):
     def __init__(self, dataset_name_or_id: Union[str, int],
-                 cascade_dataset_name_or_id: list[str] | list[int], # this is for the list of cascaded network datasets
                  gpu_memory_target_in_gb: float = 8,
                  preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetCascadePlans',
                  overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,

@@ -15,7 +15,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
-def extract_fingerprint_dataset(dataset_id: int,
+def extract_fingerprint_dataset(dataset_id: int | list[int],
                                 fingerprint_extractor_class: Type[
                                     DatasetFingerprintExtractor] = DatasetFingerprintExtractor,
                                 num_processes: int = default_num_processes, check_dataset_integrity: bool = False,
@@ -44,7 +44,8 @@ def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_nam
                                                               fingerprint_extractor_class_name,
                                                               current_module="nnunetv2.experiment_planning")
     if cascade:
-        pass
+        extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
+                                        verbose)
     else:
         for d in dataset_ids:
             extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
@@ -79,7 +80,7 @@ def plan_experiment_dataset(dataset_id: int,
 def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str = 'ExperimentPlanner',
                      gpu_memory_target_in_gb: float = None, preprocess_class_name: str = 'DefaultPreprocessor',
                      overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
-                     overwrite_plans_name: Optional[str] = None):
+                     overwrite_plans_name: Optional[str] = None, cascade: bool = False):
     """
     overwrite_target_spacing ONLY applies to 3d_fullres and 3d_cascade fullres!
     """
@@ -93,10 +94,14 @@ def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str 
                                                      experiment_planner_class_name,
                                                      current_module="nnunetv2.experiment_planning")
     plans_identifier = None
-    for d in dataset_ids:
-        _, plans_identifier = plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb,
-                                                      preprocess_class_name,
-                                                      overwrite_target_spacing, overwrite_plans_name)
+
+    if cascade:
+        pass
+    else:
+        for d in dataset_ids:
+            _, plans_identifier = plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb,
+                                                        preprocess_class_name,
+                                                        overwrite_target_spacing, overwrite_plans_name)
     return plans_identifier
 
 
