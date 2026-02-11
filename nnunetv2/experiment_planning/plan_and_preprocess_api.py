@@ -35,7 +35,7 @@ def extract_fingerprint_dataset(dataset_id: int | list[int],
 
 def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_name: str = 'DatasetFingerprintExtractor',
                          num_processes: int = default_num_processes, check_dataset_integrity: bool = False,
-                         clean: bool = True, verbose: bool = True, cascade: bool = True):
+                         clean: bool = True, verbose: bool = True, cascade: bool = True, cascade_datasets: list = []):
     """
     clean = False will not actually run this. This is just a switch for use with nnUNetv2_plan_and_preprocess where
     we don't want to rerun fingerprint extraction every time.

@@ -176,7 +176,12 @@ def plan_and_preprocess_entry():
     
     # additional arguments for different tasks with cascade
     parser.add_argument('--cascade', required=False, default=False, 
-                        help="Set this to interpret a list of datasets as a cascade of networks/tasks")
+                        help="Set this to enable multi-task cascade setups across multiple datasets")
+    parser.add_argument('--cascade_IDs', required=False, default=[], type=list, 
+                        help="This is the list of dataset IDs that make up our cascaded setup. "
+                        "For example: --cascade_IDs 001,012,032 will form a cascade with trained networks from setups." 
+                        "NOTE: you need to set --cascade to true for this parameter to matter.")
+    
 
 
     args = parser.parse_args()
