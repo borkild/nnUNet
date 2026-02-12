@@ -15,11 +15,12 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
-def extract_fingerprint_dataset(dataset_id: int | list[int],
+def extract_fingerprint_dataset(dataset_id: int,
                                 fingerprint_extractor_class: Type[
                                     DatasetFingerprintExtractor] = DatasetFingerprintExtractor,
                                 num_processes: int = default_num_processes, check_dataset_integrity: bool = False,
-                                clean: bool = True, verbose: bool = True):
+                                clean: bool = True, verbose: bool = True,
+                                cascade_dataset_IDs: list = []):
     """
     Returns the fingerprint as a dictionary (additionally to saving it)
     """
@@ -28,8 +29,11 @@ def extract_fingerprint_dataset(dataset_id: int | list[int],
 
     if check_dataset_integrity:
         verify_dataset_integrity(join(nnUNet_raw, dataset_name), num_processes)
-
-    fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose)
+    if len(cascade_dataset_IDs) != 0:
+        fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose, cascade_dataset_IDs)
+    else: 
+        fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose)
+        
     return fpe.run(overwrite_existing=clean)
 
 
@@ -43,7 +47,7 @@ def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_nam
     fingerprint_extractor_class = recursive_find_python_class(join(nnunetv2.__path__[0], "experiment_planning"),
                                                               fingerprint_extractor_class_name,
                                                               current_module="nnunetv2.experiment_planning")
-    if cascade:
+    if cascade and len(cascade_datasets) != 0:
         extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
                                         verbose)
     else:
