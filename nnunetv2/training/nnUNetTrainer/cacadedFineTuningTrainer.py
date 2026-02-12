@@ -567,16 +567,14 @@ class cascadednnUNetTrainer(object):
                                               device=self.device, requires_grad=True)
                 print("saving model to " + join(self.output_folder, "network_architecture.onnx"))
                 torch.onnx.export(self.network,
-                                  dummy_input,
-                                  join(self.output_folder, "network_architecture.onnx"),
-                                  export_params=True,
-                                  opset_version=10,
-                                  do_constant_folding=True,
-                                  dynamic_axes= {"input": {0: "batch_size"},
-                                                 "output": {0: "batch_size"}}
-                                  )
+                                    dummy_input,
+                                    join(self.output_folder, "network_architecture.onnx"),
+                                    opset_version=20
+                                    )
                 
                 print("Successfully saved model!")
+            
+            
             except Exception as e:
                 self.print_to_log_file("Unable to save network architecture:")
                 self.print_to_log_file(e)

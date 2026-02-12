@@ -510,29 +510,29 @@ class nnUNetTrainer(object):
         lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
         return optimizer, lr_scheduler
 
+    # export the network as a .onnx file to visualize in netron -- we don't expect you to ever actually run the model from the onnx file
     def plot_network_architecture(self):
         if self._do_i_compile():
             self.print_to_log_file("Unable to plot network architecture: nnUNet_compile is enabled!")
             return
         if self.local_rank == 0:
-            try:
-                # hidden layer doesn't work, so instead we save out the network architecture in onnx format
-                # then we can load it into netron to view the architecture and tensor sizes at each step
-                dummy_input = torch.rand((1, self.num_input_channels,
-                                               *self.configuration_manager.patch_size),
-                                              device=self.device, requires_grad=True)
-                print("saving model to " + join(self.output_folder, "network_architecture.onnx"))
-                torch.onnx.export(self.network,
-                                  dummy_input,
-                                  join(self.output_folder, "network_architecture.onnx"),
-                                  export_params=True,
-                                  opset_version=10,
-                                  do_constant_folding=True,
-                                  dynamic_axes= {"input": {0: "batch_size"},
-                                                 "output": {0: "batch_size"}}
-                                  )
+            #try:
+            # hidden layer doesn't work, so instead we save out the network architecture in onnx format
+            # then we can load it into netron to view the architecture and tensor sizes at each step
+            dummy_input = torch.rand((1, self.num_input_channels,
+                                            *self.configuration_manager.patch_size),
+                                            device=self.device, requires_grad=True)
+            
+            print("saving model to " + join(self.output_folder, "network_architecture.onnx"))
+            torch.onnx.export(self.network,
+                                dummy_input,
+                                join(self.output_folder, "network_architecture.onnx"),
+                                opset_version=20
+                                )
+            
+            print("Successfully saved model!")
                 
-                print("Successfully saved model!")
+            '''
             except Exception as e:
                 self.print_to_log_file("Unable to save network architecture:")
                 self.print_to_log_file(e)
@@ -542,6 +542,8 @@ class nnUNetTrainer(object):
                 # self.print_to_log_file("\n")
             finally:
                 empty_cache(self.device)
+                
+            '''
 
     def do_split(self):
         """
