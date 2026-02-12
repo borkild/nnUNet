@@ -30,7 +30,7 @@ def extract_fingerprint_dataset(dataset_id: int,
     if check_dataset_integrity:
         verify_dataset_integrity(join(nnUNet_raw, dataset_name), num_processes)
     if len(cascade_dataset_IDs) != 0:
-        fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose, cascade_dataset_IDs)
+        fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose, cascade_network_list=cascade_dataset_IDs)
     else: 
         fpe = fingerprint_extractor_class(dataset_id, num_processes, verbose=verbose)
         
@@ -49,7 +49,7 @@ def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_nam
                                                               current_module="nnunetv2.experiment_planning")
     if cascade and len(cascade_datasets) != 0:
         extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
-                                        verbose)
+                                        verbose, cascade_datasets)
     else:
         for d in dataset_ids:
             extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,

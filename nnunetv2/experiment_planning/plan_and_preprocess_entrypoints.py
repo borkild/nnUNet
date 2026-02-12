@@ -182,13 +182,13 @@ def plan_and_preprocess_entry():
                         "For example: --cascade_IDs 001,012,032 will form a cascade with trained networks from setups." 
                         "NOTE: you need to set --cascade to true for this parameter to matter.")
     
-     
+
 
     args = parser.parse_args()
 
     # fingerprint extraction
     print("Fingerprint extraction...")
-    extract_fingerprints(args.d, args.fpe, args.npfp, args.verify_dataset_integrity, args.clean, args.verbose, args.cascade)
+    extract_fingerprints(args.d, args.fpe, args.npfp, args.verify_dataset_integrity, args.clean, args.verbose, args.cascade, args.cascade_IDs)
 
     # experiment planning
     print('Experiment planning...')
