@@ -60,7 +60,8 @@ def plan_experiment_dataset(dataset_id: int,
                             experiment_planner_class: Type[ExperimentPlanner] = ExperimentPlanner,
                             gpu_memory_target_in_gb: float = None, preprocess_class_name: str = 'DefaultPreprocessor',
                             overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
-                            overwrite_plans_name: Optional[str] = None) -> Tuple[dict, str]:
+                            overwrite_plans_name: Optional[str] = None,
+                            cascade_networks: list = [], cascade_configs: list = []) -> Tuple[dict, str]:
     """
     overwrite_target_spacing ONLY applies to 3d_fullres and 3d_cascade fullres!
     """
@@ -69,14 +70,24 @@ def plan_experiment_dataset(dataset_id: int,
         kwargs['plans_name'] = overwrite_plans_name
     if gpu_memory_target_in_gb is not None:
         kwargs['gpu_memory_target_in_gb'] = gpu_memory_target_in_gb
-
-    planner = experiment_planner_class(dataset_id,
-                                       preprocessor_name=preprocess_class_name,
-                                       overwrite_target_spacing=[float(i) for i in overwrite_target_spacing] if
-                                       overwrite_target_spacing is not None else overwrite_target_spacing,
-                                       suppress_transpose=False,  # might expose this later,
-                                       **kwargs
-                                       )
+    if len(cascade_networks) != 0:
+        planner = experiment_planner_class(dataset_id,
+                                        preprocessor_name=preprocess_class_name,
+                                        overwrite_target_spacing=[float(i) for i in overwrite_target_spacing] if
+                                        overwrite_target_spacing is not None else overwrite_target_spacing,
+                                        suppress_transpose=False,  # might expose this later,
+                                        cascade_networks=cascade_networks,
+                                        cascade_configs=cascade_configs,
+                                        **kwargs
+                                        )
+    else:
+        planner = experiment_planner_class(dataset_id,
+                                        preprocessor_name=preprocess_class_name,
+                                        overwrite_target_spacing=[float(i) for i in overwrite_target_spacing] if
+                                        overwrite_target_spacing is not None else overwrite_target_spacing,
+                                        suppress_transpose=False,  # might expose this later,
+                                        **kwargs
+                                        )
     ret = planner.plan_experiment()
     return ret, planner.plans_identifier
 
@@ -84,7 +95,8 @@ def plan_experiment_dataset(dataset_id: int,
 def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str = 'ExperimentPlanner',
                      gpu_memory_target_in_gb: float = None, preprocess_class_name: str = 'DefaultPreprocessor',
                      overwrite_target_spacing: Optional[Tuple[float, ...]] = None,
-                     overwrite_plans_name: Optional[str] = None, cascade: bool = False):
+                     overwrite_plans_name: Optional[str] = None, cascade: bool = False, 
+                     cascade_networks: list = [], cascade_configs: list = []):
     """
     overwrite_target_spacing ONLY applies to 3d_fullres and 3d_cascade fullres!
     """
@@ -100,7 +112,10 @@ def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str 
     plans_identifier = None
 
     if cascade:
-        pass
+        _, plans_identifier = plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb,
+                                                        preprocess_class_name,
+                                                        overwrite_target_spacing, overwrite_plans_name, 
+                                                        cascade_networks, cascade_configs)
     else:
         for d in dataset_ids:
             _, plans_identifier = plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb,

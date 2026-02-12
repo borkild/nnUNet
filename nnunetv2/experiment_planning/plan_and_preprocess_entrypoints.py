@@ -181,6 +181,8 @@ def plan_and_preprocess_entry():
                         help="This is the list of dataset IDs that make up our cascaded setup. "
                         "For example: --cascade_IDs 001,012,032 will form a cascade with trained networks from setups." 
                         "NOTE: you need to set --cascade to true for this parameter to matter.")
+    parser.add_argument('--cascade_configs', required=False, default=[], type=list, 
+                        help="The configurations to use in the cascade for each step. For now they should all be 2D or 3D, not a mix.")
     
 
 
@@ -193,7 +195,8 @@ def plan_and_preprocess_entry():
     # experiment planning
     print('Experiment planning...')
     plans_identifier = plan_experiments(args.d, args.pl, args.gpu_memory_target, args.preprocessor_name,
-                                        args.overwrite_target_spacing, args.overwrite_plans_name, args.cascade)
+                                        args.overwrite_target_spacing, args.overwrite_plans_name, 
+                                        args.cascade, args.cascade_IDs, args.cascade_configs)
 
     # manage default np
     if args.np is None:
