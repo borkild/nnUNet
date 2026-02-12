@@ -1,6 +1,7 @@
 import shutil
 from copy import deepcopy
 from typing import List, Union, Tuple
+import os
 
 import numpy as np
 import torch
@@ -26,7 +27,9 @@ class CascadeExperimentPlanner(object):
                  gpu_memory_target_in_gb: float = 8,
                  preprocessor_name: str = 'DefaultPreprocessor', plans_name: str = 'nnUNetCascadePlans',
                  overwrite_target_spacing: Union[List[float], Tuple[float, ...]] = None,
-                 suppress_transpose: bool = False):
+                 suppress_transpose: bool = False,
+                 cascade_networks: list = [],
+                 cascade_configs: list = []):
         """
         overwrite_target_spacing only affects 3d_fullres! (but by extension 3d_lowres which starts with fullres may
         also be affected
@@ -38,6 +41,13 @@ class CascadeExperimentPlanner(object):
         preprocessed_folder = join(nnUNet_preprocessed, self.dataset_name)
         self.dataset_json = load_json(join(self.raw_dataset_folder, 'dataset.json'))
         self.dataset = get_filenames_of_train_images_and_targets(self.raw_dataset_folder, self.dataset_json)
+        
+        # load dataset names into list
+        self.network_datasets = []
+        for netIdx in range(len(cascade_networks)):
+            self.network_datasets.append( maybe_convert_to_dataset_name(cascade_networks[netIdx]) )
+            
+        self.configs = cascade_configs
 
         # load dataset fingerprint
         if not isfile(join(preprocessed_folder, 'dataset_fingerprint.json')):
@@ -402,6 +412,37 @@ class CascadeExperimentPlanner(object):
         }
         return plan
 
+    def build_cascade_arch_plan(self):
+        # this function returns everything that belongs in the "architecture" key in the cascaded plan dict
+        # and the number of networks in the cascade
+        networks = {}
+        # iterate through networks in cascade
+        for netIdx in range(len(self.network_datasets)):
+            networks["network_"+str(netIdx)] = {}
+            # check for plan file in given folder -- for now we assume
+            if os.path.isfile( os.path.join(nnUNet_preprocessed, self.network_datasets[netIdx], "nnUNetPlans.json") ):
+                networks["network_"+str(netIdx)]["plan_file_path"] = os.path.join(nnUNet_preprocessed, self.network_datasets[netIdx], "nnUNetPlans.json")
+            else:
+                print("couldn't find plan for network " + str(netIdx) + " in cascade")
+                raise ImportError()
+            # check for matching config in this network's plans file
+            cur_plan_dict = load_json( os.path.join(nnUNet_preprocessed, self.network_datasets[netIdx], "nnUNetPlans.json") )
+            cur_plan_configs = cur_plan_dict["configurations"]
+            if self.configs[netIdx] in cur_plan_configs:
+                networks["network_"+str(netIdx)]["network_config"] = self.configs[netIdx]
+            else:
+                print("Chosen configuration is not in the plan file for network " + str(netIdx))
+                raise ImportError()
+            # find location of trained weights (from inidividual network training)
+            
+            
+
+        
+
+            
+            
+        
+    
     def plan_experiment(self):
         """
         MOVE EVERYTHING INTO THE PLANS. MAXIMUM FLEXIBILITY
@@ -413,6 +454,14 @@ class CascadeExperimentPlanner(object):
         So for now if you want a different transpose_forward/backward you need to create a new planner. Also not too
         hard.
         """
+        # our cascaded plan won't need to calculate anything new, it just needs to pull info from other plans to form the cascade plan file
+        cascaded_plan_dict = {}
+        cascaded_plan_dict["dataset_name"] = self.dataset_name
+        
+        # iterate through networks that make up cascade and build out each architecture
+        
+        
+        
         # we use this as a cache to prevent having to instantiate the architecture too often. Saves computation time
         _tmp = {}
 
@@ -590,4 +639,4 @@ def _maybe_copy_splits_file(splits_file: str, target_fname: str):
 
 
 if __name__ == '__main__':
-    ExperimentPlanner(2, 8).plan_experiment()
+    CascadeExperimentPlanner(2, 8).plan_experiment()
