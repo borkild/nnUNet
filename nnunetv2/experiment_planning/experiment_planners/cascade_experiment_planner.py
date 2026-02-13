@@ -139,7 +139,15 @@ class CascadeExperimentPlanner(ExperimentPlanner):
     # this function checks to make sure the train and validation splits are the same for all networks
     # we don't want data leak by having scans in the train set in the validation set for another network
     def check_train_val_splits(self):
-        pass
+        later_networks = []
+        # iterate through networks, loading split.json file
+        for netIdx in range(len(self.network_datasets)):
+            if netIdx == 0:
+                first_network_split = load_json( os.path.join(nnUNet_preprocessed, self.network_datasets[netIdx], "split.json") )
+            else:
+                later_networks.append( load_json( os.path.join(nnUNet_preprocessed, self.network_datasets[netIdx], "split.json") ) )
+
+        print(first_network_split)
     
     
     def check_train_test_sets(self):
