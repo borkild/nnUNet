@@ -600,10 +600,18 @@ class CascadeConfigurationManager(object):
     def get_network_weight_paths(self):
         weight_path_list = []
         for netIdx in range(self.configuration["number_of_networks"]):
-            weight_path_list.append( self.configuration["architecture"]["network_"+str(netIdx)]["weight_save_location"] )
+            weight_path_list.append( self.configuration["architecture"]["network_"+str(netIdx)]["weight_save_path"] )
 
         return weight_path_list
 
+    # this function gets the type of checkpoint we want to load (final or best) for each network
+    @property
+    def get_network_save_type(self):
+        save_types = []
+        for netIdx in range(self.configuration["number_of_networks"]):
+            save_types.append( self.configuration["architecture"]["network_"+str(netIdx)]["weight_save_type"] )
+            
+        return save_types
 
     # function to get number of input channels for each network
     def get_num_input_channels(self, index: int = None) -> int | list[int]: # list is modern python way of specifying list type (vs List)
