@@ -12,7 +12,7 @@ from dynamic_network_architectures.building_blocks.helper import convert_dim_to_
 from nnunetv2.configuration import ANISO_THRESHOLD
 from nnunetv2.experiment_planning.experiment_planners.network_topology import get_pool_and_conv_props
 from nnunetv2.imageio.reader_writer_registry import determine_reader_writer_from_dataset_json
-from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
+from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed, nnUNet_results
 from nnunetv2.preprocessing.normalization.map_channel_name_to_normalization import get_normalization_scheme
 from nnunetv2.preprocessing.resampling.default_resampling import resample_data_or_seg_to_shape, compute_new_shape
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
@@ -414,7 +414,6 @@ class CascadeExperimentPlanner(object):
 
     def build_cascade_arch_plan(self):
         # this function returns everything that belongs in the "architecture" key in the cascaded plan dict
-        # and the number of networks in the cascade
         networks = {}
         # iterate through networks in cascade
         for netIdx in range(len(self.network_datasets)):
@@ -433,7 +432,15 @@ class CascadeExperimentPlanner(object):
             else:
                 print("Chosen configuration is not in the plan file for network " + str(netIdx))
                 raise ImportError()
-            # find location of trained weights (from inidividual network training)
+            # find folder of trained weights (from individual network training) for each fold -- again, we assume nnUnet plans and trainer used for now
+            if os.path.isdir( os.path.join(nnUNet_results, self.network_datasets[netIdx], "nnUNetTrainer__nnUNetPlans__" + self.configs[netIdx]) ):
+                networks["network_"+str(netIdx)]["weight_save_path"] = os.path.join(nnUNet_results, self.network_datasets[netIdx], 
+                                                                                    "nnUNetTrainer__nnUNetPlans__"+self.configs[netIdx])
+            else:
+                print("Can't find results folder with saved networks for network " + str(netIdx) + " config " + self.configs[netIdx])
+                
+            
+            
             
             
 
