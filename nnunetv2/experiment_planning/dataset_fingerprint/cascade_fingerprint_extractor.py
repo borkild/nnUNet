@@ -91,7 +91,7 @@ class cascadeDatasetFingerprintExtractor(DatasetFingerprintExtractor):
         new_dataset["channel_names"] = first_net_dataset["channel_names"]
         new_dataset["labels"] = last_net_datset["labels"]
         new_dataset["numTraining"] = first_net_dataset["numTraining"]
-        new_dataset["file_ending"] = new_dataset["file_ending"]
+        new_dataset["file_ending"] = first_net_dataset["file_ending"]
         # save .json for new dataset
         save_json(new_dataset, os.path.join(nnUNet_raw, self.dataset_name, "dataset.json") )
     
