@@ -24,6 +24,7 @@ def extract_fingerprint_dataset(dataset_id: int,
     """
     Returns the fingerprint as a dictionary (additionally to saving it)
     """
+    print(dataset_id)
     dataset_name = convert_id_to_dataset_name(dataset_id)
     print(dataset_name)
 
@@ -48,8 +49,12 @@ def extract_fingerprints(d: List[int] | int, fingerprint_extractor_class_name: s
                                                               fingerprint_extractor_class_name,
                                                               current_module="nnunetv2.experiment_planning")
     if cascade and len(cascade_datasets) != 0:
-        extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
-                                        verbose, cascade_datasets)
+        if len(d) == 1:
+            extract_fingerprint_dataset(d[0], fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
+                                            verbose, cascade_datasets)
+        else:
+            print("Cannot process multiple cascades at once right now. Please build cascades one at a time for now.")
+            raise ImportError()
     else:
         for curID in d:
             extract_fingerprint_dataset(curID, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
