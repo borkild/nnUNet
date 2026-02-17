@@ -62,21 +62,21 @@ class cascadeDatasetFingerprintExtractor(DatasetFingerprintExtractor):
         os.mkdir( os.path.join(nnUNet_raw, self.dataset_name) )
         print("creating directory: " + os.path.join(nnUNet_raw, self.dataset_name))
         # copy train and test inputs from first network folder
-        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTr"), os.path.join(nnUNet_raw, self.dataset_name) )
-        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTs"), os.path.join(nnUNet_raw, self.dataset_name) )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTr"), os.path.join(nnUNet_raw, self.dataset_name, "imagesTr") )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTs"), os.path.join(nnUNet_raw, self.dataset_name, "imagesTs") )
         # copy train and test labels from last network
-        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTr"), os.path.join(nnUNet_raw, self.dataset_name) )
-        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTs"), os.path.join(nnUNet_raw, self.dataset_name) )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTr"), os.path.join(nnUNet_raw, self.dataset_name, "labelsTr") )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTs"), os.path.join(nnUNet_raw, self.dataset_name, "labelsTs") )
         print("Copied inputs and labels into new dataset for cascaded fine-tuning!")
         
         # check that number of train and test scans match -- we will do a more in-depth check to make sure the cascade will work in the planner
         trainInputs = os.listdir( os.path.join(nnUNet_raw, self.dataset_name, "imagesTr") )
         trainInputs = [file for file in trainInputs if "_0000" in file] # filter inputs to only grab channel 0
-        testInputs = os.listdir( os.path.join(nnUNet_raw, self.dataset_name, "imagesTr") )
+        testInputs = os.listdir( os.path.join(nnUNet_raw, self.dataset_name, "imagesTs") )
         testInputs = [file for file in testInputs if "_0000" in file]
         trainLabels = os.listdir( os.path.join(nnUNet_raw, self.dataset_name, "labelsTr") )
         testLabels = os.listdir( os.path.join(nnUNet_raw, self.dataset_name, "labelsTs") )
-        
+
         if len(trainInputs) != len(trainLabels) or len(testInputs) != len(testLabels):
             print("It appears that the train and test sets for networks in the cascade are different.")
             print("Make sure you have the same train and test set for each network, then try again.")
