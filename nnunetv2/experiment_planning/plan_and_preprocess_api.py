@@ -37,7 +37,7 @@ def extract_fingerprint_dataset(dataset_id: int,
     return fpe.run(overwrite_existing=clean)
 
 
-def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_name: str = 'DatasetFingerprintExtractor',
+def extract_fingerprints(d: List[int] | int, fingerprint_extractor_class_name: str = 'DatasetFingerprintExtractor',
                          num_processes: int = default_num_processes, check_dataset_integrity: bool = False,
                          clean: bool = True, verbose: bool = True, cascade: bool = True, cascade_datasets: list = []):
     """
@@ -51,8 +51,8 @@ def extract_fingerprints(dataset_ids: List[int], fingerprint_extractor_class_nam
         extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
                                         verbose, cascade_datasets)
     else:
-        for d in dataset_ids:
-            extract_fingerprint_dataset(d, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
+        for curID in d:
+            extract_fingerprint_dataset(curID, fingerprint_extractor_class, num_processes, check_dataset_integrity, clean,
                                         verbose)
 
 
