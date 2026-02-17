@@ -175,7 +175,7 @@ def plan_and_preprocess_entry():
                              'Recommended for cluster environments')
     
     # additional arguments for different tasks with cascade
-    parser.add_argument('--cascade', required=False, default=False, 
+    parser.add_argument('--cascade', required=False, default=False, type=bool,
                         help="Set this to enable multi-task cascade setups across multiple datasets")
     parser.add_argument('--cascade_IDs', required=False, default=[], type=list, 
                         help="This is the list of dataset IDs that make up our cascaded setup. "
