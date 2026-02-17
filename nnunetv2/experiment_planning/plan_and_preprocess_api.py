@@ -24,9 +24,9 @@ def extract_fingerprint_dataset(dataset_id: int,
     """
     Returns the fingerprint as a dictionary (additionally to saving it)
     """
-    print(dataset_id)
-    dataset_name = convert_id_to_dataset_name(dataset_id)
-    print(dataset_name)
+    if len(cascade_dataset_IDs) == 0: # the dataset won't be there yet if we're running the cascaded setup
+        dataset_name = convert_id_to_dataset_name(dataset_id)
+        print(dataset_name)
 
     if check_dataset_integrity:
         verify_dataset_integrity(join(nnUNet_raw, dataset_name), num_processes)

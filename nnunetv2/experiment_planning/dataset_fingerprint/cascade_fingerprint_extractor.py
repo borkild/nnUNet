@@ -43,8 +43,6 @@ class cascadeDatasetFingerprintExtractor(DatasetFingerprintExtractor):
         self.dataset_name = dataset_name
         self.input_folder = join(nnUNet_raw, dataset_name)
         self.num_processes = num_processes
-        self.dataset_json = load_json(join(self.input_folder, 'dataset.json'))
-        self.dataset = get_filenames_of_train_images_and_targets(self.input_folder, self.dataset_json)
         
         # 
         self.cascade_networks = cascade_network_list
@@ -58,17 +56,17 @@ class cascadeDatasetFingerprintExtractor(DatasetFingerprintExtractor):
         self.num_foreground_voxels_for_intensitystats = 10e7
 
     
-    @staticmethod
+    @property
     def gen_cascade_dataset(self):
         # make directory
         os.mkdir( os.path.join(nnUNet_raw, self.dataset_name) )
         print("creating directory: " + os.path.join(nnUNet_raw, self.dataset_name))
         # copy train and test inputs from first network folder
-        shutil.copy( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTr"), os.path.join(nnUNet_raw, self.dataset_name) )
-        shutil.copy( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTs"), os.path.join(nnUNet_raw, self.dataset_name) )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTr"), os.path.join(nnUNet_raw, self.dataset_name) )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[0], "imagesTs"), os.path.join(nnUNet_raw, self.dataset_name) )
         # copy train and test labels from last network
-        shutil.copy( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTr"), os.path.join(nnUNet_raw, self.dataset_name) )
-        shutil.copy( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTs"), os.path.join(nnUNet_raw, self.dataset_name) )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTr"), os.path.join(nnUNet_raw, self.dataset_name) )
+        shutil.copytree( os.path.join(nnUNet_raw, self.cascade_dataset_names[-1], "labelsTs"), os.path.join(nnUNet_raw, self.dataset_name) )
         print("Copied inputs and labels into new dataset for cascaded fine-tuning!")
         
         # check that number of train and test scans match -- we will do a more in-depth check to make sure the cascade will work in the planner
@@ -109,7 +107,11 @@ class cascadeDatasetFingerprintExtractor(DatasetFingerprintExtractor):
             
         else:
             self.gen_cascade_dataset
-            
+        
+        # do some additional assignment now that the dataset should be made
+        self.dataset_json = load_json(join(self.input_folder, 'dataset.json'))
+        self.dataset = get_filenames_of_train_images_and_targets(self.input_folder, self.dataset_json)
+
         # everything from here on out is the same as the run function in the original dataset function -- so we call the original run function
         fingerprint = super().run(overwrite_existing=overwrite_existing)
         return fingerprint
