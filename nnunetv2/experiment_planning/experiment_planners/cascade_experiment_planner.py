@@ -153,7 +153,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
             first_net_set = set(first_network_split[foldIdx]["val"]) # only need to grab and check validation set
             later_net_sets = []
             for latIdx in range(len(later_networks)):
-                later_net_sets.append( set(later_networks[latIdx]["val"]) )
+                later_net_sets.append( set(later_networks[0][latIdx]["val"]) )
             # check each validation set to match -- sets don't care about order, we make use of them here
             sets_equal = all( x == first_net_set for x in later_net_sets )
             
