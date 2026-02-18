@@ -117,10 +117,14 @@ def plan_experiments(dataset_ids: List[int], experiment_planner_class_name: str 
     plans_identifier = None
 
     if cascade:
-        _, plans_identifier = plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb,
-                                                        preprocess_class_name,
-                                                        overwrite_target_spacing, overwrite_plans_name, 
-                                                        cascade_networks, cascade_configs)
+        if len(dataset_ids) == 1:
+            _, plans_identifier = plan_experiment_dataset(dataset_ids[0], experiment_planner, gpu_memory_target_in_gb,
+                                                            preprocess_class_name,
+                                                            overwrite_target_spacing, overwrite_plans_name, 
+                                                            cascade_networks, cascade_configs)
+        else:
+            print("can only build 1 cascade at a time, please give only 1 dataset ID.")
+            raise ValueError()
     else:
         for d in dataset_ids:
             _, plans_identifier = plan_experiment_dataset(d, experiment_planner, gpu_memory_target_in_gb,
