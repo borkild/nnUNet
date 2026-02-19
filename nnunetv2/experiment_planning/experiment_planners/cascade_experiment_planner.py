@@ -312,20 +312,27 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # check to make sure the previous train/val splits match for each network
         self.check_train_val_splits()
         
-        cascaded_plan_dict["cascade_config"] = {}
+        cascaded_plan_dict["configurations"] = {}
+        cascaded_plan_dict["configurations"]["cascade"] = {}
         # build architecture part of plan
         arch_config = self.build_cascade_arch_plan()
-        cascaded_plan_dict["cascade_config"]["architecture"] = arch_config
-        cascaded_plan_dict["cascade_config"]["number_of_networks"] = len(cascaded_plan_dict["cascade_config"]["architecture"]) - 1
+        cascaded_plan_dict["configurations"]["cascade"]["architecture"] = arch_config
+        cascaded_plan_dict["configurations"]["cascade"]["number_of_networks"] = len(cascaded_plan_dict["configurations"]["cascade"]["architecture"]) - 1
         
         # build cascade keyword args
         cascade_kwargs = self.gen_cascade_kwargs(arch_config)
-        cascaded_plan_dict["cascade_config"]["arch_kwargs"] = cascade_kwargs
+        cascaded_plan_dict["configurations"]["cascade"]["arch_kwargs"] = cascade_kwargs
         
         # build other config parameters -- these mainly come from other plan files in the cascade
         other_config_details = self.grab_other_config_details(arch_config)
-        cascaded_plan_dict["cascade_config"] = {**cascaded_plan_dict["cascade_config"], **other_config_details}
+        cascaded_plan_dict["configurations"]["cascade"] = {**cascaded_plan_dict["configurations"]["cascade"], **other_config_details}
         
+        # grab label and plan manager
+        cascaded_plan_dict["experiment_planner_used"] = "CascadExperimentPlanner"
+        cascaded_plan_dict["label_manager"] = "LabelManager"
+        
+        # grab foreground intensity properties
+        cascaded_plan_dict['foreground_intensity_properties_per_channel'] = self.dataset_fingerprint['foreground_intensity_properties_per_channel']
 
         # save out plan as json
         self.plans = cascaded_plan_dict

@@ -367,7 +367,7 @@ class CascadePlansManager(object):
     def get_configuration(self, configuration_name: str):
         if not "cascade" in configuration_name:
             raise ValueError("This function is only for cascaded networks, but that is not the selected config. Please check your plans file.")
-        return CascadeConfigurationManager(self.plans["cascade_config"])
+        return CascadeConfigurationManager(self.plans["configurations"][configuration_name])
     
     
     # this function grabs a list of the configurations for the networks in the cascade
