@@ -66,11 +66,14 @@ from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import CascadePlansManager
 
+# original trainer, which our trainer will inherit from
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+
 # we just import this ourselves, as we expect only to use a cascade with this trainer
 from dynamic_network_architectures.architectures.cascaded_networks import cascaded_networks
 
 
-class cascadednnUNetTrainer(object):
+class cascadednnUNetTrainer(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         # 
