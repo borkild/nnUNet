@@ -326,12 +326,16 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         networks = []
         # iterate through configs, building list of networks
         for netIdx in range(len(network_config_list)):
+            print("on network: " + str(netIdx))
+            print("input channels: " + str(self.configuration_manager.get_num_input_channels(netIdx)) )
+            print("output channels: " + str(self.configuration_manager.get_num_output_classes(netIdx)) )
+            
             cur_network = self.build_individual_network_architecture(
                 self.configuration_manager.individual_network_arch_class_name(netIdx),
                 self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
                 self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
                 self.configuration_manager.get_num_input_channels(netIdx),
-                self.configuration_manager.get_num_output_classes(netIdx)+1, # add 1, as we don't include background as a class in the plan file
+                self.configuration_manager.get_num_output_classes(netIdx), 
                 self.enable_deep_supervision
             )
             
@@ -341,6 +345,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             # out network in list
             networks.append(cur_network)
 
+        print(arch_init_kwargs)
+        
         return cascaded_networks(networks, **arch_init_kwargs)
     
     
