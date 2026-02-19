@@ -526,9 +526,6 @@ class CascadePlansManager(object):
         
 
     # these last few functions grab experiment and label managers
-    # in our case, we only used the default label and experiment managers for all networks, so we just grab the last network's manager
-    # This would be something to change in the future for full integration in the framework, but for now I don't want to mess
-    # with figuring out how to merge different label managers and decide if they will work together
     @property
     @lru_cache(maxsize=1)
     def experiment_planner_class(self) -> Type[ExperimentPlanner]:
@@ -546,8 +543,7 @@ class CascadePlansManager(object):
     @property
     @lru_cache(maxsize=1)
     def label_manager_class(self) -> Type[LabelManager]:
-        finalIdx = len(self.network_plans)-1
-        return get_labelmanager_class_from_plans(self.network_plans[finalIdx])
+        return get_labelmanager_class_from_plans(self.plans)
 
     def get_label_manager(self, dataset_json: dict, **kwargs) -> LabelManager:
         return self.label_manager_class(label_dict=dataset_json['labels'],
@@ -575,6 +571,12 @@ class CascadeConfigurationManager(object):
     def __repr__(self):
         return self.configuration.__repr__()
 
+    # this function returns the number of networks in the cascade
+    @property
+    def get_num_networks(self) -> int:
+        return self.configuration["number_of_networks"]
+    
+    
     # this function returns a list of configurations, with each entry corresponding to each network in the cascade
     @property
     def get_network_configs(self) -> list[ConfigurationManager]:
@@ -619,7 +621,7 @@ class CascadeConfigurationManager(object):
             for netIdx in range(len(self.configuration["number_of_networks"])):
                 numChannels.append(self.configuration["architecture"]["network_"+str(netIdx)]["num_input_channels"])
         else:
-            numChannels = self.plans["architecture"]["network_"+str(netIdx)]["num_input_channels"]
+            numChannels = self.configuration["architecture"]["network_"+str(index)]["num_input_channels"]
         return numChannels
 
 

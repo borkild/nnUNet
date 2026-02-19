@@ -201,8 +201,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
 
             networks = []
             # iterate through networks in plan file, building them individually according to their plan file
-            for netIdx in range(self.plans_manager.plans["number_of_networks"]):
-                num_inputChannels = self.plans_manager.get_num_input_channels[netIdx]
+            for netIdx in range(self.configuration_manager.get_num_networks):
+                num_inputChannels = self.configuration_manager.get_num_input_channels(netIdx)
                 networks.append( self.build_individual_network_architecture(
                     self.configuration_manager[netIdx].network_arch_class_name,
                     self.configuration_manager[netIdx].network_arch_init_kwargs,
