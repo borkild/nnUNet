@@ -1,5 +1,7 @@
 import warnings
 from typing import List, Type, Optional, Tuple, Union
+import shutil
+import os
 
 from batchgenerators.utilities.file_and_folder_operations import join, maybe_mkdir_p, load_json
 
@@ -12,6 +14,7 @@ from nnunetv2.paths import nnUNet_raw, nnUNet_preprocessed
 from nnunetv2.utilities.dataset_name_id_conversion import convert_id_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+from nnunetv2.utilities.plans_handling.plans_handler import CascadePlansManager
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 
 
@@ -137,7 +140,7 @@ def preprocess_dataset(dataset_id: int,
                        plans_identifier: str = 'nnUNetPlans',
                        configurations: Union[Tuple[str], List[str]] = ('2d', '3d_fullres', '3d_lowres'),
                        num_processes: Union[int, Tuple[int, ...], List[int]] = (8, 4, 8),
-                       verbose: bool = False) -> None:
+                       verbose: bool = False, cascade: bool = False) -> None:
     if not isinstance(num_processes, list):
         num_processes = list(num_processes)
     if len(num_processes) == 1:
@@ -152,17 +155,43 @@ def preprocess_dataset(dataset_id: int,
     dataset_name = convert_id_to_dataset_name(dataset_id)
     print(f'Preprocessing dataset {dataset_name}')
     plans_file = join(nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
-    plans_manager = PlansManager(plans_file)
-    for n, c in zip(num_processes, configurations):
-        print(f'Configuration: {c}...')
-        if c not in plans_manager.available_configurations:
-            print(
-                f"INFO: Configuration {c} not found in plans file {plans_identifier + '.json'} of "
-                f"dataset {dataset_name}. Skipping.")
-            continue
-        configuration_manager = plans_manager.get_configuration(c)
-        preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
-        preprocessor.run(dataset_id, c, plans_identifier, num_processes=n)
+    if cascade:
+        cascade_plans_manager = CascadePlansManager(plans_file)
+        # here, we get the configuration of the first network, and hand that to the default preprocessor
+        config_manager = cascade_plans_manager.get_configuration(configurations[0])
+        all_plans_managers = config_manager.get_network_plans
+        all_configs = config_manager.get_network_configs
+        plans_manager = all_plans_managers[0]
+        net0_config = [all_configs[0]]
+        new_plans_identifier = "nnUNetPlans"
+        for n, c in zip(num_processes, net0_config):
+            print(f'Configuration: {c}...')
+            print(plans_manager.available_configurations)
+            if c not in plans_manager.available_configurations:
+                print(
+                    f"INFO: Configuration {c} not found in plans file {new_plans_identifier + '.json'} of "
+                    f"dataset {dataset_name}. Skipping.")
+                continue
+            configuration_manager = plans_manager.get_configuration(c)
+            preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+            preprocessor.run(dataset_id, c, new_plans_identifier, num_processes=n)
+            # copy preprocessed dataset into folder with proper cascade naming
+            shutil.copytree(os.path.join(nnUNet_preprocessed, dataset_name, new_plans_identifier + "_" + c), 
+                            os.path.join(nnUNet_preprocessed, dataset_name, plans_identifier + "_" + configurations[0]))
+        
+            
+    else:
+        plans_manager = PlansManager(plans_file)
+        for n, c in zip(num_processes, configurations):
+            print(f'Configuration: {c}...')
+            if c not in plans_manager.available_configurations:
+                print(
+                    f"INFO: Configuration {c} not found in plans file {plans_identifier + '.json'} of "
+                    f"dataset {dataset_name}. Skipping.")
+                continue
+            configuration_manager = plans_manager.get_configuration(c)
+            preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
+            preprocessor.run(dataset_id, c, plans_identifier, num_processes=n)
 
     # copy the gt to a folder in the nnUNet_preprocessed so that we can do validation even if the raw data is no
     # longer there (useful for compute cluster where only the preprocessed data is available)
@@ -181,6 +210,6 @@ def preprocess(dataset_ids: List[int],
                plans_identifier: str = 'nnUNetPlans',
                configurations: Union[Tuple[str], List[str]] = ('2d', '3d_fullres', '3d_lowres'),
                num_processes: Union[int, Tuple[int, ...], List[int]] = (8, 4, 8),
-               verbose: bool = False):
+               verbose: bool = False, cascade: bool = False):
     for d in dataset_ids:
-        preprocess_dataset(d, plans_identifier, configurations, num_processes, verbose)
+        preprocess_dataset(d, plans_identifier, configurations, num_processes, verbose, cascade)

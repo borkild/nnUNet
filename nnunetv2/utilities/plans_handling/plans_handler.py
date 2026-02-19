@@ -331,8 +331,8 @@ class CascadePlansManager(object):
         self.plans = plan_file_or_dict if isinstance(plan_file_or_dict, dict) else load_json(plan_file_or_dict)
         # now we'll also load and save a list of plans from the given files
         self.network_plans = []
-        for netIdx in range(self.plans["number_of_networks"]):
-            self.network_plans.append( PlansManager(self.plans["network_" + str(netIdx)]["plan_file_path"]) ) # for now we assume to be using the default plans manager
+        for netIdx in range(self.plans["configurations"]["cascade"]["number_of_networks"]):
+            self.network_plans.append( PlansManager(self.plans["configurations"]["cascade"]["architecture"]["network_" + str(netIdx)]["plan_file_path"]) ) # for now we assume to be using the default plans manager
         
         
     def __repr__(self):
@@ -362,7 +362,7 @@ class CascadePlansManager(object):
             configuration = base_config
         return configuration
 
-    # this function grabs the configuration for the whole cascade -- it always lives in "cascade_config" in the plan file
+    # this function grabs the configuration for the whole cascade -- it always lives in "configurations" in the plan file
     @lru_cache(maxsize=10)
     def get_configuration(self, configuration_name: str):
         if not "cascade" in configuration_name:
@@ -394,10 +394,10 @@ class CascadePlansManager(object):
     def get_num_output_classes(self, index:int = None) -> int | list[int]:
         if index == None:
             numChannels = []
-            for netIdx in range(len(self.plans["number_of_networks"])):
-                numChannels.append(self.plans["network_properties"]["network_"+str(netIdx)]["num_output_classes"])
+            for netIdx in range(len(self.plans["configurations"]["cascade"]["number_of_networks"])):
+                numChannels.append(self.plans["configurations"]["cascade"]["architecture"]["network_"+str(netIdx)]["num_output_classes"])
         else:
-            numChannels = self.plans["network_properties"]["network_"+str(index)]["num_output_classes"]
+            numChannels = self.plans["configurations"]["cascade"]["architecture"]["network_"+str(index)]["num_output_classes"]
         return numChannels
         
     # the functions that output lists are not properties, as we allow an index parameter to be passed
@@ -518,10 +518,10 @@ class CascadePlansManager(object):
     def get_chosen_configs(self, index: int = None) -> str | List[str]:
         if index == None:
             config = []
-            for netIdx in range(self.plans["number_of_networks"]):
-                config.append( self.plans["network_properties"]["network_" + str(netIdx)] )
+            for netIdx in range(self.plans["configurations"]["cascade"]["number_of_networks"]):
+                config.append( self.plans["configurations"]["cascade"]["architecture"]["network_" + str(netIdx)] )
         else:
-            config = self.plans["network_properties"]["network_"+str(index)]
+            config = self.plans["configurations"]["cascade"]["architecture"]["network_"+str(index)]
         return config
         
 
@@ -570,7 +570,7 @@ class CascadeConfigurationManager(object):
         # this isn't backwards compatible with v1, so if architecture isn't there, then
         # we throw an error
         if 'architecture' not in self.configuration.keys():
-            raise ValueError("architecture not found in cascade_config, please check your plan file")
+            raise ValueError("architecture not found in configuration -> cascade, please check your plan file")
 
     def __repr__(self):
         return self.configuration.__repr__()
@@ -578,10 +578,9 @@ class CascadeConfigurationManager(object):
     # this function returns a list of configurations, with each entry corresponding to each network in the cascade
     @property
     def get_network_configs(self) -> list[ConfigurationManager]:
-        planList = self.get_network_plans
         configList = []
-        for netIdx in range(len(planList)):
-            configList.append( planList.get_configuration(planList[netIdx]) )
+        for netIdx in range(self.configuration["number_of_networks"]):
+            configList.append( self.configuration["architecture"]["network_" + str(netIdx)]["network_config"] )
 
         return configList
         

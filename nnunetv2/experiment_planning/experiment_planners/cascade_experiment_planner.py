@@ -23,6 +23,8 @@ from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
 from nnunetv2.experiment_planning.experiment_planners.default_experiment_planner import ExperimentPlanner
 
+from dynamic_network_architectures.architectures.cascaded_networks import cascaded_networks
+
 # make our class a child of the default experiment planner so that we don't need to have a bunch of unnecessary functions here
 class CascadeExperimentPlanner(ExperimentPlanner):
     def __init__(self, dataset_name_or_id: Union[str, int],
@@ -60,6 +62,8 @@ class CascadeExperimentPlanner(ExperimentPlanner):
 
         self.dataset_fingerprint = load_json(join(preprocessed_folder, 'dataset_fingerprint.json'))
 
+        self.network_class = cascaded_networks
+        
         self.anisotropy_threshold = ANISO_THRESHOLD
 
         self.UNet_base_num_features = 32
@@ -300,6 +304,11 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         So for now if you want a different transpose_forward/backward you need to create a new planner. Also not too
         hard.
         """
+        # instead of writing all that into the plans we just copy the original file. More files, but less crowded
+        # per file.
+        shutil.copy(join(self.raw_dataset_folder, 'dataset.json'),
+                    join(nnUNet_preprocessed, self.dataset_name, 'dataset.json'))
+        
         # our cascaded plan won't need to calculate anything new, it just needs to pull info from other plans to form the cascade plan file
         cascaded_plan_dict = {} # dict that we'll eventually write as a .json for the plan
         cascaded_plan_dict["dataset_name"] = self.dataset_name
@@ -317,7 +326,16 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # build architecture part of plan
         arch_config = self.build_cascade_arch_plan()
         cascaded_plan_dict["configurations"]["cascade"]["architecture"] = arch_config
-        cascaded_plan_dict["configurations"]["cascade"]["number_of_networks"] = len(cascaded_plan_dict["configurations"]["cascade"]["architecture"]) - 1
+        cascaded_plan_dict["configurations"]["cascade"]["number_of_networks"] = len(cascaded_plan_dict["configurations"]["cascade"]["architecture"])
+        cascaded_plan_dict["configurations"]["cascade"]["network_class_name"] = self.network_class.__module__ + '.' + self.network_class.__name__
+        
+        # grab first base nnUnet plan, change foreground pixel info to match final output, then write to current dataset loc
+        # we use this so we can utilize the standard preprocessor -- I did not want to touch the preprocessing (DANGER ZONE)
+        print("Copying network 0 plan for preprocessing ...")
+        net0_plan = load_json( cascaded_plan_dict["configurations"]["cascade"]["architecture"]["network_0"]["plan_file_path"] )
+        net0_plan["foreground_intensity_properties_per_channel"] = self.dataset_fingerprint['foreground_intensity_properties_per_channel']
+        self.save_plans(net0_plan, "nnUNetPlans")
+        print("Done")
         
         # build cascade keyword args
         cascade_kwargs = self.gen_cascade_kwargs(arch_config)
@@ -336,14 +354,14 @@ class CascadeExperimentPlanner(ExperimentPlanner):
 
         # save out plan as json
         self.plans = cascaded_plan_dict
-        self.save_plans(cascaded_plan_dict)
+        self.save_plans(cascaded_plan_dict, self.plans_identifier)
         return cascaded_plan_dict
         
 
-    def save_plans(self, plans):
+    def save_plans(self, plans, plans_identifier):
         recursive_fix_for_json_export(plans)
 
-        plans_file = join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json')
+        plans_file = join(nnUNet_preprocessed, self.dataset_name, plans_identifier + '.json')
 
         # we don't want to overwrite potentially existing custom configurations every time this is executed. So let's
         # read the plans file if it already exists and keep any non-default configurations
@@ -357,7 +375,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
 
         maybe_mkdir_p(join(nnUNet_preprocessed, self.dataset_name))
         save_json(plans, plans_file, sort_keys=False)
-        print(f"Plans were saved to {join(nnUNet_preprocessed, self.dataset_name, self.plans_identifier + '.json')}")
+        print(f"Plans were saved to {join(nnUNet_preprocessed, self.dataset_name, plans_identifier + '.json')}")
 
     def generate_data_identifier(self, configuration_name: str) -> str:
         """

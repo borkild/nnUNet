@@ -205,10 +205,11 @@ def plan_and_preprocess_entry():
         np = [default_np[c] if c in default_np.keys() else 4 for c in args.c]
     else:
         np = args.np
-    # preprocessing
+        
+     # preprocessing
     if not args.no_pp:
-        print('Preprocessing...')
-        preprocess(args.d, plans_identifier, args.c, np, args.verbose)
+         print('Preprocessing...')
+         preprocess(args.d, plans_identifier, args.c, np, args.verbose, args.cascade)
 
 
 if __name__ == '__main__':
