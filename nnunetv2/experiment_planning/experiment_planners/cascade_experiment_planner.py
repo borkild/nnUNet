@@ -220,7 +220,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
             # check to see if the input will be passed to each network
             if netIdx == 0:
                 input_channels = arch_dict["network_"+str(netIdx)]["num_input_channels"]
-            cur_output_classes = arch_dict["network_"+str(netIdx)]["num_output_classes"]
+            cur_output_classes = arch_dict["network_"+str(netIdx)]["num_output_classes"] - 1 # we assume we will never give the background to the next network
             nxt_input_channels = arch_dict["network_"+str(netIdx+1)]["num_input_channels"]
             chan_diff = nxt_input_channels - cur_output_classes
             # check for difference in number of channels from one network to another
@@ -247,6 +247,8 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         kwargs["intermediate_transforms"] = None
         kwargs["intermediate_outputs"] = False
         kwargs["split_intermediate_outputs"] = True
+        
+        return kwargs
         
                 
     def grab_other_config_details(self, arch_dict):
@@ -325,7 +327,6 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         cascaded_plan_dict["configurations"]["cascade"] = {}
         # build architecture part of plan
         arch_config = self.build_cascade_arch_plan()
-        print(arch_config)
         cascaded_plan_dict["configurations"]["cascade"]["architecture"] = arch_config
         cascaded_plan_dict["configurations"]["cascade"]["number_of_networks"] = len(cascaded_plan_dict["configurations"]["cascade"]["architecture"])
         cascaded_plan_dict["configurations"]["cascade"]["architecture"]["network_class_name"] = self.network_class.__module__ + '.' + self.network_class.__name__
