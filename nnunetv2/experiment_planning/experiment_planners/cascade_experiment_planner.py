@@ -112,7 +112,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # iterate through networks in cascade
         for netIdx in range(len(self.network_datasets)):
             networks["network_"+str(netIdx)] = {}
-            # check for plan file in given folder -- for now we assume
+            # check for plan file in given folder -- for now we assume to use base nnUnet planner
             if os.path.isfile( os.path.join(nnUNet_preprocessed, self.network_datasets[netIdx], "nnUNetPlans.json") ):
                 networks["network_"+str(netIdx)]["plan_file_path"] = os.path.join(nnUNet_preprocessed, self.network_datasets[netIdx], "nnUNetPlans.json")
             else:
@@ -135,7 +135,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
             # add desired weight config type
             networks["network_"+str(netIdx)]["weight_save_type"] = self.checkpoint_weight_tag
             # now load dataset json file, and grab number of input and output channels
-            dataset = load_json( os.path.join(self.raw_dataset_folder, "dataset.json") )
+            dataset = load_json( os.path.join(nnUNet_raw, self.network_datasets[netIdx], "dataset.json") )
             networks["network_"+str(netIdx)]["num_input_channels"] = len(dataset["channel_names"])
             networks["network_"+str(netIdx)]["num_output_classes"] = len(dataset["labels"])
         # return dict
@@ -215,7 +215,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # cascaded trainer to build the architecture
         kwargs = {}
         no_diff = False
-        input_diff = True
+        input_diff = False
         for netIdx in range(len(arch_dict)-2):
             # check to see if the input will be passed to each network
             if netIdx == 0:
@@ -278,9 +278,9 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # and ~ideally~ the same patch size
         for netIdx in range(1, len(arch_dict)-1):
             cur_net_plan = load_json(arch_dict["network_"+str(netIdx)]["plan_file_path"])
-            cur_patch_size = cur_net_plan["configuration"][arch_dict["network_"+str(netIdx)]["network_config"]]["patch_size"]
+            cur_patch_size = cur_net_plan["configurations"][arch_dict["network_"+str(netIdx)]["network_config"]]["patch_size"]
             # check that dimensions match
-            if len(other_config_details["patch_size"]) != cur_patch_size:
+            if len(other_config_details["patch_size"]) != len(cur_patch_size):
                 print("Input dimensions for networks are not the same! All networks in cascade must be 2D or 3D.")
                 raise ValueError()
 
@@ -325,9 +325,10 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         cascaded_plan_dict["configurations"]["cascade"] = {}
         # build architecture part of plan
         arch_config = self.build_cascade_arch_plan()
+        print(arch_config)
         cascaded_plan_dict["configurations"]["cascade"]["architecture"] = arch_config
         cascaded_plan_dict["configurations"]["cascade"]["number_of_networks"] = len(cascaded_plan_dict["configurations"]["cascade"]["architecture"])
-        cascaded_plan_dict["configurations"]["cascade"]["network_class_name"] = self.network_class.__module__ + '.' + self.network_class.__name__
+        cascaded_plan_dict["configurations"]["cascade"]["architecture"]["network_class_name"] = self.network_class.__module__ + '.' + self.network_class.__name__
         
         # grab first base nnUnet plan, change foreground pixel info to match final output, then write to current dataset loc
         # we use this so we can utilize the standard preprocessor -- I did not want to touch the preprocessing (DANGER ZONE)
