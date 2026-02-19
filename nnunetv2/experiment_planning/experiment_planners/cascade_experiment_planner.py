@@ -270,7 +270,8 @@ class CascadeExperimentPlanner(ExperimentPlanner):
                         "resampling_fn_data_kwargs",
                         "resampling_fn_seg_kwargs",
                         "resampling_fn_probabilities",
-                        "resampling_fn_probabilities_kwargs"
+                        "resampling_fn_probabilities_kwargs",
+                        "batch_dice"
                         ]
         # build out list of other config details
         for key in keys_to_grab:
