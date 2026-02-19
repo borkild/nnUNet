@@ -197,27 +197,17 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             self._set_batch_size_and_oversample()
 
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
-                                                                   self.dataset_json)
+                                                                   self.dataset_json)   
 
-            networks = []
-            # iterate through networks in plan file, building them individually according to their plan file
-            for netIdx in range(self.configuration_manager.get_num_networks):
-                num_inputChannels = self.configuration_manager.get_num_input_channels(netIdx)
-                networks.append( self.build_individual_network_architecture(
-                    self.configuration_manager[netIdx].network_arch_class_name,
-                    self.configuration_manager[netIdx].network_arch_init_kwargs,
-                    self.configuration_manager[netIdx].network_arch_init_kwargs_req_import,
-                    num_inputChannels,
-                    self.label_manager.num_segmentation_heads,
-                    self.enable_deep_supervision
-                ) )
-                # load weights for the network
-                
-                # add network to list of networks
-                
-
-            # hand list of networks to build our cascade, along with additional options in the plan file
-            self.network = self.build_cascade(networks)
+            # build cascaded architecture
+            self.network = self.build_network_architecture(
+                self.configuration_manager.network_arch_class_name,
+                self.configuration_manager.network_arch_init_kwargs,
+                self.configuration_manager.network_arch_init_kwargs_req_import,
+                self.configuration_manager.get_num_input_channels(0),
+                self.label_manager.num_segmentation_heads,
+                self.enable_deep_supervision
+            )
             
             # compile network for free speedup
             if self._do_i_compile():
@@ -336,13 +326,12 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         networks = []
         # iterate through configs, building list of networks
         for netIdx in range(len(network_config_list)):
-            num_inputChannels = self.configuration_manager.get_num_input_channels[netIdx]
             cur_network = self.build_individual_network_architecture(
-                self.configuration_manager[netIdx].network_arch_class_name,
-                self.configuration_manager[netIdx].network_arch_init_kwargs,
-                self.configuration_manager[netIdx].network_arch_init_kwargs_req_import,
-                num_inputChannels,
-                self.label_manager.num_segmentation_heads,
+                self.configuration_manager.individual_network_arch_class_name(netIdx),
+                self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
+                self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
+                self.configuration_manager.get_num_input_channels(netIdx),
+                self.configuration_manager.get_num_output_classes(netIdx)+1, # add 1, as we don't include background as a class in the plan file
                 self.enable_deep_supervision
             )
             
@@ -352,7 +341,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             # out network in list
             networks.append(cur_network)
 
-        return cascaded_networks(networks, **self.plans_manager.get_cascade_args)
+        return cascaded_networks(networks, **arch_init_kwargs)
     
     
     # this is the same as build_network_architecture in the basic nnUnetTrainer

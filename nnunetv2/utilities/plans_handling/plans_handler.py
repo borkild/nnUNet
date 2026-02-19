@@ -624,7 +624,18 @@ class CascadeConfigurationManager(object):
             numChannels = self.configuration["architecture"]["network_"+str(index)]["num_input_channels"]
         return numChannels
 
-
+    
+    # function to get number of output classes (number of channels is the (number of classes + 1)) for each network
+    def get_num_output_classes(self, index:int = None) -> int | list[int]:
+        if index == None:
+            numChannels = []
+            for netIdx in range(len(self.configuration["number_of_networks"])):
+                numChannels.append(self.configuration["architecture"]["network_"+str(netIdx)]["num_output_classes"])
+        else:
+            numChannels = self.configuration["architecture"]["network_"+str(index)]["num_output_classes"]
+        return numChannels
+    
+    
     @property
     def data_identifier(self) -> str:
         return self.configuration['data_identifier']
@@ -668,14 +679,61 @@ class CascadeConfigurationManager(object):
     @property
     def network_arch_class_name(self) -> str:
         return self.configuration['architecture']['network_class_name']
+    
+    # same as above, but grabs individual network class's name within the cascade
+    def individual_network_arch_class_name(self, index: int = None) -> str | list[str]:
+        if index == None:
+            arch_class_name = []
+            for netIdx in range(self.configuration["number_of_networks"]):
+                net_config = PlansManager( self.configuration["architecture"]["network_"+str(netIdx)]["plan_file_path"] ).get_configuration( 
+                                                                    self.configuration["architecture"]["network_"+str(index)]["network_config"] )
+                arch_class_name.append( net_config.network_arch_class_name )
+        else:
+            net_config = PlansManager( self.configuration["architecture"]["network_"+str(index)]["plan_file_path"] ).get_configuration( 
+                                                                    self.configuration["architecture"]["network_"+str(index)]["network_config"] )
+            arch_class_name = net_config.network_arch_class_name
+        return arch_class_name
+        
 
     @property
     def network_arch_init_kwargs(self) -> dict:
         return self.configuration['arch_kwargs']
+    
+    # again, same as above, but for the individual architectures
+    def individual_network_arch_init_kwargs(self, index: int = None) -> dict | list[dict]:
+        if index == None:
+            arch_kwargs = []
+            for netIdx in range(self.configuration["number_of_networks"]):
+                net_config = PlansManager( self.configuration["architecture"]["network_"+str(netIdx)]["plan_file_path"] ).get_configuration( 
+                                                                    self.configuration["architecture"]["network_"+str(index)]["network_config"] )
+                arch_kwargs.append( net_config.network_arch_init_kwargs )
+        else:
+            net_config = PlansManager( self.configuration["architecture"]["network_"+str(index)]["plan_file_path"] ).get_configuration( 
+                                                                    self.configuration["architecture"]["network_"+str(index)]["network_config"] )
+            arch_kwargs = net_config.network_arch_init_kwargs
+        return arch_kwargs
 
     @property
     def network_arch_init_kwargs_req_import(self) -> Union[Tuple[str, ...], List[str]]:
-        return self.configuration['architecture']['_kw_requires_import']
+        if '_kw_requires_import' in self.configuration['architecture']:
+            return self.configuration['architecture']['_kw_requires_import']
+        else:
+            return []
+    
+    # same as above, for perhaps the longest funciton name ever
+    def individual_network_arch_init_kwargs_req_import(self, index: int = None) -> Tuple[str] | list[str] |list[tuple[str]] | list[list[str]]:
+        if index == None:
+            arch_kwargs_ri = []
+            for netIdx in range(self.configuration["number_of_networks"]):
+                net_config = PlansManager( self.configuration["architecture"]["network_"+str(netIdx)]["plan_file_path"] ).get_configuration( 
+                                                                    self.configuration["architecture"]["network_"+str(index)]["network_config"] )
+                arch_kwargs_ri.append( net_config.network_arch_init_kwargs_req_import )
+        else:
+            net_config = PlansManager( self.configuration["architecture"]["network_"+str(index)]["plan_file_path"] ).get_configuration( 
+                                                                    self.configuration["architecture"]["network_"+str(index)]["network_config"] )
+            arch_kwargs_ri = net_config.network_arch_init_kwargs_req_import
+        return arch_kwargs_ri
+    
 
     @property
     def pool_op_kernel_sizes(self) -> Tuple[Tuple[int, ...], ...]:
