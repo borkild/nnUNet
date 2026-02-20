@@ -370,23 +370,6 @@ class CascadePlansManager(object):
         return CascadeConfigurationManager(self.plans["configurations"][configuration_name])
     
     
-    # this function grabs a list of the configurations for the networks in the cascade
-    @lru_cache(maxsize=10)
-    def get_individual_configuration(self): # no configuration name is needed, as the config to use is selected in the plan file
-        # get list of config names
-        configNameList = self.get_chosen_configs()
-        networkConfigManagers = []
-        # iterate through list, checking to see if configs exist in each network plan
-        for netIdx in range(len(self.network_plans)):
-            configuration_name = configNameList[netIdx]
-            if configuration_name not in self.network_plans[netIdx]['configurations'].keys():
-                raise RuntimeError(f"Requested configuration {configuration_name} not found in plans. "
-                                f"Available configurations: {list(self.plans['configurations'].keys())}")
-
-            configuration_dict = self._internal_resolve_configuration_inheritance(configuration_name)
-            # again, for now we assume to only be using the basic config manager
-            networkConfigManagers.append( ConfigurationManager(configuration_dict) )
-        return networkConfigManagers
     # below are functions meant to emulate those available in the basic plans manager, but they output lists,
     # with each entry corresponding to each value
     
@@ -594,6 +577,14 @@ class CascadeConfigurationManager(object):
             planList.append( PlansManager(self.configuration["architecture"]["network_"+str(netIdx)]["plan_file_path"]) )
 
         return planList
+    
+    # this function returns a list of the configurations for each network in the cascade
+    def get_individual_configurations(self, index: int) -> list[ConfigurationManager]: # no configuration name is needed, as the config to use is selected in the plan file
+        # get list of config names
+        net_plan_list = self.get_network_plans
+        net_config_to_get = self.get_network_configs
+        print(net_plan_list)
+        return net_plan_list[index].get_configuration(net_config_to_get[index])
 
 
     # this function gets the list of paths to each network's weights from individual training

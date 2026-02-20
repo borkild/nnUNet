@@ -106,7 +106,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         self.plans_manager = CascadePlansManager(plans) # cascaded plan manager also has a list of plans for each network in the cascade
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
         # get individual network configurations
-        self.network_configuration_manager = self.configuration_manager.get_network_configs
+        self.network_configuration_manager = self.configuration_manager.get_individual_configurations
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
@@ -134,8 +134,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                  self.configuration_manager.previous_stage_name, 'predicted_next_stage', self.configuration_name) \
                 if self.is_cascaded else None
 
-        ### Some hyperparameters for you to fiddle with
-        self.initial_lr = 1e-2
+        ### Some hyperparameters for you to fiddle with -- for now have deep supervision off and reduced initial LR
+        self.initial_lr = 1e-4
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
@@ -143,7 +143,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
         self.current_epoch = 0
-        self.enable_deep_supervision = True
+        self.enable_deep_supervision = False
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -207,7 +207,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 self.configuration_manager.get_num_input_channels(0),
                 self.label_manager.num_segmentation_heads,
                 self.enable_deep_supervision
-            )
+                ).to(self.device)
             
             # compile network for free speedup
             if self._do_i_compile():
@@ -326,18 +326,25 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         networks = []
         # iterate through configs, building list of networks
         for netIdx in range(len(network_config_list)):
-            print("on network: " + str(netIdx))
-            print("input channels: " + str(self.configuration_manager.get_num_input_channels(netIdx)) )
-            print("output channels: " + str(self.configuration_manager.get_num_output_classes(netIdx)) )
-            
-            cur_network = self.build_individual_network_architecture(
-                self.configuration_manager.individual_network_arch_class_name(netIdx),
-                self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
-                self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
-                self.configuration_manager.get_num_input_channels(netIdx),
-                self.configuration_manager.get_num_output_classes(netIdx), 
-                self.enable_deep_supervision
-            )
+            # if we enable deep supervision, it should only be on the last network
+            if netIdx != len(network_config_list)-1:
+                cur_network = self.build_individual_network_architecture(
+                    self.configuration_manager.individual_network_arch_class_name(netIdx),
+                    self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
+                    self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
+                    self.configuration_manager.get_num_input_channels(netIdx),
+                    self.configuration_manager.get_num_output_classes(netIdx), 
+                    False
+                )
+            else:
+                cur_network = self.build_individual_network_architecture(
+                    self.configuration_manager.individual_network_arch_class_name(netIdx),
+                    self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
+                    self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
+                    self.configuration_manager.get_num_input_channels(netIdx),
+                    self.configuration_manager.get_num_output_classes(netIdx), 
+                    self.enable_deep_supervision
+                ) 
             
             # load in weights from previous training
             checkpoint = torch.load(self.get_fold_weight_path(netIdx), map_location=torch.device('cpu'), weights_only=False)
@@ -390,7 +397,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
     def _get_deep_supervision_scales(self):
         if self.enable_deep_supervision:
             deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
-                self.configuration_manager.pool_op_kernel_sizes), axis=0))[:-1]
+                self.configuration_manager.get_individual_configurations(-1).pool_op_kernel_sizes), axis=0))[:-1]
         else:
             deep_supervision_scales = None  # for train and val_transforms
         return deep_supervision_scales
@@ -923,6 +930,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
         return ComposeTransforms(transforms)
 
+    # we hand deep supervision to each network as we build, so we alter this function to pass it to the last network in the cascade
     def set_deep_supervision_enabled(self, enabled: bool):
         """
         This function is specific for the default architecture in nnU-Net. If you change the architecture, there are
@@ -935,7 +943,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         if isinstance(mod, OptimizedModule):
             mod = mod._orig_mod
 
-        mod.decoder.deep_supervision = enabled
+        mod.networks[-1].decoder.deep_supervision = enabled
 
     def on_train_start(self):
         if not self.was_initialized:
