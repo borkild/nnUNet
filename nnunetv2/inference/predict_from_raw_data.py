@@ -32,7 +32,7 @@ from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
-from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager, CascadePlansManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 
@@ -66,7 +66,8 @@ class nnUNetPredictor(object):
 
     def initialize_from_trained_model_folder(self, model_training_output_dir: str,
                                              use_folds: Union[Tuple[Union[int, str]], None],
-                                             checkpoint_name: str = 'checkpoint_final.pth'):
+                                             checkpoint_name: str = 'checkpoint_final.pth', 
+                                             cascade: bool = False):
         """
         This is used when making predictions with a trained model
         """
@@ -75,7 +76,10 @@ class nnUNetPredictor(object):
 
         dataset_json = load_json(join(model_training_output_dir, 'dataset.json'))
         plans = load_json(join(model_training_output_dir, 'plans.json'))
-        plans_manager = PlansManager(plans)
+        if cascade:
+            plans_manager = CascadePlansManager(plans)
+        else:
+            plans_manager = PlansManager(plans)
 
         if isinstance(use_folds, str):
             use_folds = [use_folds]
@@ -930,6 +934,11 @@ def predict_entry_point():
     parser.add_argument('--disable_progress_bar', action='store_true', required=False, default=False,
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
                              'jobs)')
+    
+    # add cascaded parameter so that we use the cascade plan manager when calling our cascaded networks
+    parser.add_argument('--cascade', required=False, type=bool, default=False,
+                        help="set to true if using the custom cascade planner -- this way "
+                        "we handle the plan correctly.")
 
     print(
         "\n#######################################################################\nPlease cite the following paper "
@@ -975,7 +984,8 @@ def predict_entry_point():
     predictor.initialize_from_trained_model_folder(
         model_folder,
         args.f,
-        checkpoint_name=args.chk
+        checkpoint_name=args.chk,
+        cascade=args.cascade
     )
     
     run_sequential = args.nps == 0 and args.npp == 0
