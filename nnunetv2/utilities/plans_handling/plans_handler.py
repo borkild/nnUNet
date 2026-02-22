@@ -395,9 +395,9 @@ class CascadePlansManager(object):
         if index == None:
             dataset_names = []
             for netIdx in range(len(self.network_plans)):
-                dataset_names.append(self.network_plans[netIdx]["dataset_name"])
+                dataset_names.append(self.network_plans[netIdx].dataset_name)
         else:
-            dataset_names = self.network_plans[index]["dataset_name"]
+            dataset_names = self.network_plans[index].dataset_name
                 
         return dataset_names
 
@@ -409,40 +409,38 @@ class CascadePlansManager(object):
         if index == None:
             plan_names = []
             for netIdx in range(len(self.network_plans)):
-                plan_names.append(self.network_plans[netIdx]["plans_name"])
+                plan_names.append(self.network_plans[netIdx].plans_name)
         else:
-            plan_names = self.network_plans[index]["plans_name"]
+            plan_names = self.network_plans[index].plans_name
         return plan_names
 
     # for now, we alter these properties to just grab the value from the final network in our cascade
     # we also have functions that mirror the originals, with the format described above
     @property
     def original_median_spacing_after_transp(self) -> List[float]:
-        finalIdx = len(self.network_plans)-1
-        return self.netowrk_plans[finalIdx]['original_median_spacing_after_transp']
+        return self.network_plans[0].original_median_spacing_after_transp
     
     def networks_original_median_spacing_after_transp(self, index: int = None) -> List[float] | List[List[float]]:
         if index == None:
             spacing = []
             for netIdx in range(len(self.network_plans)):
-                spacing.append(self.network_plans[netIdx]["original_median_spacing_after_transp"])
+                spacing.append(self.network_plans[netIdx].original_median_spacing_after_transp)
         else:
-            spacing = self.network_plans[index]["original_median_spacing_after_transp"]
+            spacing = self.network_plans[index].original_median_spacing_after_transp
         return spacing
 
     @property
     def original_median_shape_after_transp(self) -> List[float]:
-        finalIdx = len(self.network_plans)-1
-        return self.network_plans[finalIdx]['original_median_shape_after_transp']
+        return self.network_plans[0].original_median_shape_after_transp
     
     
     def networks_original_median_shape_after_transp(self, index: int = None) -> List[float] | List[List[float]]:
         if index == None:
             medShape = []
             for netIdx in range(len(self.network_plans)):
-                medShape.append(self.network_plans[netIdx]["original_median_shape_after_transp"])
+                medShape.append(self.network_plans[netIdx].original_median_shape_after_transp)
         else:
-            medShape = self.network_plans[index]["original_median_shape_after_transp"]
+            medShape = self.network_plans[index].original_median_shape_after_transp
         return medShape
 
     
@@ -456,31 +454,29 @@ class CascadePlansManager(object):
     # but an adaptation to another cascade with different transposes and properties at each step may take some additional doing
     @property
     def transpose_forward(self) -> List[int]:
-        finalIdx = len(self.network_plans)-1
-        return self.network_plans[finalIdx]['transpose_forward']
+        return self.network_plans[0].transpose_forward
     
     def networks_transpose_forward(self, index: int = None) -> List[int] | List[List[int]]:
         if index == None:
             tp_forward = []
             for netIdx in range(len(self.network_plans)):
-                tp_forward.append(self.network_plans[netIdx]["transpose_forward"]) 
+                tp_forward.append(self.network_plans[netIdx].transpose_forward) 
         else:
-            tp_forward = self.network_plans[index]["transpose_forward"]
+            tp_forward = self.network_plans[index].transpose_forward
         return tp_forward
 
     @property
     def transpose_backward(self) -> List[int]:
-        finalIdx = len(self.network_plans)-1
-        return self.network_plans[finalIdx]['transpose_backward']
+        return self.network_plans[0].transpose_backward
     
     
     def networks_transpose_backward(self, index: int = None) -> List[int] | List[List[int]]:
         if index == None:
             tp_back = []
             for netIdx in range(len(self.network_plans)):
-                tp_back.append(self.network_plans[netIdx]["transpose_backward"]) 
+                tp_back.append(self.network_plans[netIdx].transpose_backward) 
         else:
-            tp_back = self.network_plans[index]["transpose_backward"]
+            tp_back = self.network_plans[index].transpose_backward
         return tp_back
 
     @property
@@ -493,9 +489,9 @@ class CascadePlansManager(object):
         if index == None:
             configs = []
             for netIdx in range(len(self.network_plans)):
-                configs.append(self.network_plans[netIdx]["configurations"].keys())
+                configs.append(self.network_plans[netIdx].available_configurations.keys())
         else:
-            configs = self.network_plans[index]["configurations"].keys()
+            configs = self.network_plans[index].available_configurations.keys()
         return configs
     
     def get_chosen_configs(self, index: int = None) -> str | List[str]:
@@ -520,8 +516,7 @@ class CascadePlansManager(object):
 
     @property
     def experiment_planner_name(self) -> str:
-        finalIdx = len(self.network_plans)-1
-        return self.network_plans[finalIdx]['experiment_planner_used']
+        return self.plans["experiment_planner_used"]
 
     @property
     @lru_cache(maxsize=1)
@@ -535,11 +530,10 @@ class CascadePlansManager(object):
 
     @property
     def foreground_intensity_properties_per_channel(self) -> dict:
-        finalIdx = len(self.network_plans)-1
-        if 'foreground_intensity_properties_per_channel' not in self.network_plans[finalIdx].keys():
-            if 'foreground_intensity_properties_by_modality' in self.network_plans[finalIdx].keys():
-                return self.network_plans[finalIdx]['foreground_intensity_properties_by_modality']
-        return self.network_plans[finalIdx]['foreground_intensity_properties_per_channel']
+        if 'foreground_intensity_properties_per_channel' not in self.plans.keys():
+            if 'foreground_intensity_properties_by_modality' in self.plans.keys():
+                return self.plans['foreground_intensity_properties_by_modality']
+        return self.plans['foreground_intensity_properties_per_channel']
     
 
 class CascadeConfigurationManager(object):
@@ -789,7 +783,7 @@ class CascadeConfigurationManager(object):
 if __name__ == '__main__':
     from nnunetv2.paths import nnUNet_preprocessed
     from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
-
+    '''
     plans = load_json(join(nnUNet_preprocessed, maybe_convert_to_dataset_name(3), 'nnUNetPlans.json'))
     # build new configuration that inherits from 3d_fullres
     plans['configurations']['3d_fullres_bs4'] = {
@@ -800,3 +794,12 @@ if __name__ == '__main__':
     plans_manager = PlansManager(plans)
     configuration_manager = plans_manager.get_configuration('3d_fullres_bs4')
     print(configuration_manager)  # look for batch size 4
+    '''
+    
+    planPath = "C:\\Users\\Ben Orkild\\Documents\\testing_grounds\\cascade_plans\\nnUNetCascadePlans.json"
+    
+    plans = load_json(planPath)
+    
+    plan_manager = CascadePlansManager(plans)
+    
+    print(plan_manager.transpose_forward)
