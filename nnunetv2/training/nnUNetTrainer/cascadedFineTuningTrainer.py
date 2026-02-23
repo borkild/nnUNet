@@ -343,7 +343,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                     self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
                     self.configuration_manager.get_num_input_channels(netIdx),
                     self.configuration_manager.get_num_output_classes(netIdx), 
-                    self.enable_deep_supervision
+                    enable_deep_supervision
                 ) 
             
             # load in weights from previous training
