@@ -573,6 +573,7 @@ class nnUNetPredictor(object):
             for axes in axes_combinations:
                 print(type(x))
                 print(type(axes))
+                print(type(self.network(torch.flip(x, axes))))
                 prediction += torch.flip(self.network(torch.flip(x, axes)), axes)
             prediction /= (len(axes_combinations) + 1)
         return prediction
