@@ -135,7 +135,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with -- for now have deep supervision off and reduced initial LR
-        self.initial_lr = 1e-3
+        self.initial_lr = 1e-4
         self.weight_decay = 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
