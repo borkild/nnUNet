@@ -113,4 +113,7 @@ ENV/
 
 *.model
 
+# developing in vs code, so ignore .vscode folder
+.vscode
+
 !documentation/assets/scribble_example.png
