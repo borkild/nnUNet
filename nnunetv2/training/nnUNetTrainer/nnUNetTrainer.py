@@ -178,6 +178,7 @@ class nnUNetTrainer(object):
 
         ### initializing stuff for remembering things and such
         self._best_ema = None
+        self._min_val_loss = None
 
         ### inference things
         self.inference_allowed_mirroring_axes = None  # this variable is set in
@@ -1137,6 +1138,23 @@ class nnUNetTrainer(object):
             self._best_ema = self.logger.my_fantastic_logging['ema_fg_dice'][-1]
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
+            
+        # some custom checkpointing here
+        # save out at epoch 50 (working on overfitting troubleshooting)
+        if current_epoch == 50:
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_50.pth'))
+        
+        # save out at epoch 100 (again, more overfitting troubleshooting)
+        if current_epoch == 100:
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_100.pth'))
+        
+        # save out at minimum validation loss
+        if self._min_val_loss is None or self.logger.my_fantastic_logging['val_losses'][-1] < self._min_val_loss:
+            self._min_val_loss = self.logger.my_fantastic_logging['val_losses'][-1]
+            self.print_to_log_file(f"Yayy! New best low val loss: {np.round(self._min_val_loss, decimals=4)}")
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_min_val.pth'))
+        
+            
 
         if self.local_rank == 0:
             self.logger.plot_progress_png(self.output_folder)
