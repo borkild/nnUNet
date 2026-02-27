@@ -143,12 +143,12 @@ class nnUNetTrainer(object):
 
         ### Some hyperparameters for you to fiddle with
         self.initial_lr = 1e-2 # originally 1e-2
-        self.weight_decay = 3e-3 # originally 3e-5
+        self.weight_decay = 3e-4 # originally 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 400 # originally 1000
+        self.num_epochs = 1000 # originally 1000
         self.current_epoch = 0
         self.enable_deep_supervision = True
 
@@ -1143,10 +1143,9 @@ class nnUNetTrainer(object):
         # save out at epoch 50 (working on overfitting troubleshooting)
         if current_epoch == 50:
             self.save_checkpoint(join(self.output_folder, 'checkpoint_50.pth'))
-        
-        # save out at epoch 100 (again, more overfitting troubleshooting)
-        if current_epoch == 100:
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_100.pth'))
+            
+        if current_epoch%100 == 0:
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_' + str(current_epoch) + '.pth'))
         
         # save out at minimum validation loss
         if self._min_val_loss is None or self.logger.my_fantastic_logging['val_losses'][-1] < self._min_val_loss:
