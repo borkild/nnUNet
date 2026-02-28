@@ -146,7 +146,9 @@ class nnUNetTrainer(object):
         self.weight_decay = 3e-4 # originally 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
-        self.num_iterations_per_epoch = 250
+        # could try reducing this, as the network currently sees 250 mini-batches per epoch
+        # reducing this may help with overfitting, as network currently sees dataset 5-10x over per epoch
+        self.num_iterations_per_epoch = 50 # originally 250
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000 # originally 1000
         self.current_epoch = 0
