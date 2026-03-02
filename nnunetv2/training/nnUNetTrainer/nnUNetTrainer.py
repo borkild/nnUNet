@@ -153,6 +153,10 @@ class nnUNetTrainer(object):
         self.num_epochs = 1000 # originally 1000
         self.current_epoch = 0
         self.enable_deep_supervision = True
+        
+        # additional epoch setup -- this enforces some early stopping for us that doesn't effect the learning rate
+        # as the learning rate scheduler is tied to self.num_epochs -- set to None to ignore
+        self.early_stop_epoch = 200
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -1378,22 +1382,44 @@ class nnUNetTrainer(object):
     def run_training(self):
         self.on_train_start()
 
-        for epoch in range(self.current_epoch, self.num_epochs):
-            self.on_epoch_start()
+        
+        if self.early_stop_epoch == None: # standard nnUnet training
+            for epoch in range(self.current_epoch, self.num_epochs):
+                self.on_epoch_start()
 
-            self.on_train_epoch_start()
-            train_outputs = []
-            for batch_id in range(self.num_iterations_per_epoch):
-                train_outputs.append(self.train_step(next(self.dataloader_train)))
-            self.on_train_epoch_end(train_outputs)
+                self.on_train_epoch_start()
+                train_outputs = []
+                for batch_id in range(self.num_iterations_per_epoch):
+                    train_outputs.append(self.train_step(next(self.dataloader_train)))
+                self.on_train_epoch_end(train_outputs)
 
-            with torch.no_grad():
-                self.on_validation_epoch_start()
-                val_outputs = []
-                for batch_id in range(self.num_val_iterations_per_epoch):
-                    val_outputs.append(self.validation_step(next(self.dataloader_val)))
-                self.on_validation_epoch_end(val_outputs)
+                with torch.no_grad():
+                    self.on_validation_epoch_start()
+                    val_outputs = []
+                    for batch_id in range(self.num_val_iterations_per_epoch):
+                        val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                    self.on_validation_epoch_end(val_outputs)
 
-            self.on_epoch_end()
+                self.on_epoch_end()
+                
+        else: # our custom stopping -- help avoid overfitting, but doesn't effect learning rate
+            for epoch in range(self.current_epoch, self.early_stop_epoch):
+                self.on_epoch_start()
+
+                self.on_train_epoch_start()
+                train_outputs = []
+                for batch_id in range(self.num_iterations_per_epoch):
+                    train_outputs.append(self.train_step(next(self.dataloader_train)))
+                self.on_train_epoch_end(train_outputs)
+
+                with torch.no_grad():
+                    self.on_validation_epoch_start()
+                    val_outputs = []
+                    for batch_id in range(self.num_val_iterations_per_epoch):
+                        val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                    self.on_validation_epoch_end(val_outputs)
+
+                self.on_epoch_end()
+                
 
         self.on_train_end()
