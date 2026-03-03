@@ -157,6 +157,9 @@ class nnUNetTrainer(object):
         # additional epoch setup -- this enforces some early stopping for us that doesn't effect the learning rate
         # as the learning rate scheduler is tied to self.num_epochs -- set to None to ignore
         self.early_stop_epoch = 200
+        
+        # parameter to determine if we want to have gaussian noise in our transforms -- We don't want it when training for scar segmentation
+        self.gaussian_noise_transform = False
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -649,7 +652,8 @@ class nnUNetTrainer(object):
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
-            ignore_label=self.label_manager.ignore_label)
+            ignore_label=self.label_manager.ignore_label,
+            do_gaussian_noise=self.gaussian_noise_transform)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
@@ -707,6 +711,7 @@ class nnUNetTrainer(object):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
+            do_gaussian_noise: bool = True
     ) -> BasicTransform:
         transforms = []
         if do_dummy_2d_data_aug:
@@ -727,14 +732,18 @@ class nnUNetTrainer(object):
 
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
-
-        transforms.append(RandomTransform(
-            GaussianNoiseTransform(
-                noise_variance=(0, 0.1),
-                p_per_channel=1,
-                synchronize_channels=True
-            ), apply_probability=0.1
-        ))
+        
+        # made gaussian noise optional, as we don't want this when we train for scar segmentation    
+        if do_gaussian_noise:
+            transforms.append(RandomTransform(
+                GaussianNoiseTransform(
+                    noise_variance=(0, 0.1),
+                    p_per_channel=1,
+                    synchronize_channels=True
+                ), apply_probability=0.1
+            ))
+        
+        
         transforms.append(RandomTransform(
             GaussianBlurTransform(
                 blur_sigma=(0.5, 1.),
