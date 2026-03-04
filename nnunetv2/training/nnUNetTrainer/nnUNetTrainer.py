@@ -65,6 +65,9 @@ from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+# our transforms to handle masks as input to the network
+from nnunetv2.training.data_augmentation.mask_input_to_seg import MoveInputMaskToSegParam
+from nnunetv2.training.data_augmentation.mask_input_to_data import MoveInputMaskBackToInput
 
 
 class nnUNetTrainer(object):
@@ -117,6 +120,15 @@ class nnUNetTrainer(object):
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
+        
+        # figure out if we have any input channels that function as masks -- for now, we assume all channels with "noNormalization"
+        # in plan -> config -> normalization_schemes are segmentation masks (likely need a more robust way to check this at some point)
+        # changing the experiment planner to add a check here would probably make more sense (again, for the future)
+        norm_schemes = self.configuration_manager.normalization_schemes
+        self.mask_input_idxs = []
+        for curIdx in range(len(norm_schemes)):
+            if norm_schemes[curIdx] == "NoNormalization":
+                self.mask_input_idxs.append(curIdx)
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -145,7 +157,7 @@ class nnUNetTrainer(object):
         self.initial_lr = 1e-2 # originally 1e-2
         self.weight_decay = 3e-4 # originally 3e-5
         self.oversample_foreground_percent = 0.33
-        self.probabilistic_oversampling = False
+        self.probabilistic_oversampling = False # try changing this to true for scar segmentation?
         # could try reducing this, as the network currently sees 250 mini-batches per epoch
         # reducing this may help with overfitting, as network currently sees dataset 5-10x over per epoch
         self.num_iterations_per_epoch = 50 # originally 250
@@ -653,7 +665,8 @@ class nnUNetTrainer(object):
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label,
-            do_gaussian_noise=self.gaussian_noise_transform)
+            do_gaussian_noise=self.gaussian_noise_transform,
+            input_mask_channels=self.mask_input_idxs)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
@@ -711,7 +724,8 @@ class nnUNetTrainer(object):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
-            do_gaussian_noise: bool = True
+            do_gaussian_noise: bool = True,
+            input_mask_channels: list[int] = []
     ) -> BasicTransform:
         transforms = []
         if do_dummy_2d_data_aug:
@@ -732,6 +746,13 @@ class nnUNetTrainer(object):
 
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
+        
+        # add transform to handle input segmentation masks, so data augmentations are not applied to them
+        if len(input_mask_channels) > 0:
+            transforms.append(
+                MoveInputMaskToSegParam(input_mask_channels)
+            )
+        
         
         # made gaussian noise optional, as we don't want this when we train for scar segmentation    
         if do_gaussian_noise:
@@ -800,6 +821,11 @@ class nnUNetTrainer(object):
                 MirrorTransform(
                     allowed_axes=mirror_axes
                 )
+            )
+            
+        if len(input_mask_channels) > 0:
+            transforms.append(
+                MoveInputMaskBackToInput(input_mask_channels)
             )
 
         if use_mask_for_norm is not None and any(use_mask_for_norm):

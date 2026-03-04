@@ -64,7 +64,7 @@ class nnUNetDataLoader(DataLoader):
         self.has_ignore = label_manager.has_ignore_label
         self.get_do_oversample = self._oversample_last_XX_percent if not probabilistic_oversampling \
             else self._probabilistic_oversampling
-        self.transforms = transforms
+        self.transforms = transforms 
 
     def _oversample_last_XX_percent(self, sample_idx: int) -> bool:
         """
