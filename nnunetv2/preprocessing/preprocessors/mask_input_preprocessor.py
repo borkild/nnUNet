@@ -122,8 +122,8 @@ class maskInputPreprocessor(DefaultPreprocessor):
         
         # combine data and segmentation back into single array
         tmp_data = np.zeros(data.shape)
-        tmp_data[img_channels, 1:] = data_img
-        tmp_data[mask_channels, 1:] = data_mask
+        tmp_data[img_channels] = data_img
+        tmp_data[mask_channels] = data_mask
         data = tmp_data
 
         if self.verbose:
