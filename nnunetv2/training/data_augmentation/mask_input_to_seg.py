@@ -28,12 +28,8 @@ class MoveInputMaskToSegParam(BasicTransform):
         # convert to same type as segementation
         mask_inputs = mask_inputs.type(data_dict['segmentation'].dtype)
         # stack mask inputs onto segmentation
-        data_dict['segmentation'] = torch.cat(data_dict['segmentation'], mask_inputs)
+        data_dict['segmentation'] = torch.cat((data_dict['segmentation'], mask_inputs))
         # get rid of mask input channels in data_dict
         keep_channels = [ i for i in range(data_dict['image'].shape[0]) if not i in self.source_channel_idx]
-        
-        print("keeping channels:") # will delete after testing
-        print(keep_channels)
-        
         data_dict['image'] = data_dict['image'][keep_channels]
         return data_dict

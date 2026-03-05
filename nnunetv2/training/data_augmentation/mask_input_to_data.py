@@ -28,14 +28,14 @@ class MoveInputMaskBackToInput(BasicTransform):
         mask_inputs = mask_inputs.type(data_dict['image'].dtype) # convert to match image data type
         
         # put input masks back into the correct channels in input
-        og_index_list = list( set(list(range(data_dict['image'].size[0] + len(self.source_channel_idx)))) - set(self.source_channel_idx) )
-        all_inputs = torch.zeros((data_dict['image'].size[0] + len(self.source_channel_idx), *data_dict['image'].size[1:] ))
+        og_index_list = list( set(list(range(data_dict['image'].shape[0] + len(self.source_channel_idx)))) - set(self.source_channel_idx) )
+        all_inputs = torch.zeros((data_dict['image'].shape[0] + len(self.source_channel_idx), *data_dict['image'].shape[1:] ))
         all_inputs[self.source_channel_idx] = mask_inputs
         all_inputs[og_index_list] = data_dict['image']
         data_dict['image'] = all_inputs
         
         # delete mask inputs from segmentation
-        fin_keep_idx = (data_dict['segmentation'].shape[0] - len(self.source_channel_idx)) + 1
+        fin_keep_idx = data_dict['segmentation'].shape[0] - len(self.source_channel_idx)
         data_dict['segmentation'] = data_dict['segmentation'][0:fin_keep_idx]
         
         return data_dict

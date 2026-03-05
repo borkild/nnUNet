@@ -727,7 +727,15 @@ class nnUNetTrainer(object):
             do_gaussian_noise: bool = True,
             input_mask_channels: list[int] = []
     ) -> BasicTransform:
+        
         transforms = []
+        
+        # add transform to handle input segmentation masks, so data augmentations are not applied to them
+        if len(input_mask_channels) > 0:
+            transforms.append(
+                MoveInputMaskToSegParam(input_mask_channels)
+            )
+        
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
             transforms.append(Convert3DTo2DTransform())
@@ -746,12 +754,6 @@ class nnUNetTrainer(object):
 
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
-        
-        # add transform to handle input segmentation masks, so data augmentations are not applied to them
-        if len(input_mask_channels) > 0:
-            transforms.append(
-                MoveInputMaskToSegParam(input_mask_channels)
-            )
         
         
         # made gaussian noise optional, as we don't want this when we train for scar segmentation    
@@ -878,7 +880,10 @@ class nnUNetTrainer(object):
 
         if deep_supervision_scales is not None:
             transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
-
+        
+        print("transform list")
+        print(ComposeTransforms(transforms))
+        
         return ComposeTransforms(transforms)
 
     @staticmethod
