@@ -15,7 +15,7 @@ from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
-from batchviewer import view_batch
+#from batchviewer import view_batch
 
 
 class nnUNetDataLoader(DataLoader):
