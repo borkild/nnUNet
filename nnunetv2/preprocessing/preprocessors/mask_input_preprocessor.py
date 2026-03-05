@@ -121,7 +121,7 @@ class maskInputPreprocessor(DefaultPreprocessor):
         seg = configuration_manager.resampling_fn_seg(seg, new_shape, original_spacing, target_spacing)
         
         # combine data and segmentation back into single array
-        tmp_data = np.zeros(data.shape)
+        tmp_data = np.zeros( (data.shape[0], *data_img.shape[1:]) )
         tmp_data[img_channels] = data_img
         tmp_data[mask_channels] = data_mask
         data = tmp_data
