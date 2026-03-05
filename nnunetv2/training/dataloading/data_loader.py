@@ -15,6 +15,8 @@ from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 
+from batchviewer import view_batch
+
 
 class nnUNetDataLoader(DataLoader):
     def __init__(self,
@@ -195,7 +197,7 @@ class nnUNetDataLoader(DataLoader):
         if self.patch_size_was_2d:
             data_all = data_all[:, :, 0]
             seg_all = seg_all[:, :, 0]
-
+        
         if self.transforms is not None:
             with torch.no_grad():
                 with threadpool_limits(limits=1, user_api=None):
@@ -212,7 +214,7 @@ class nnUNetDataLoader(DataLoader):
                         seg_all = [torch.stack([s[i] for s in segs]) for i in range(len(segs[0]))]
                     else:
                         seg_all = torch.stack(segs)
-                    del segs, images
+                    del segs, images   
             return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
 
         return {'data': data_all, 'target': seg_all, 'keys': selected_keys}
