@@ -168,7 +168,7 @@ class nnUNetTrainer(object):
         
         # additional epoch setup -- this enforces some early stopping for us that doesn't effect the learning rate
         # as the learning rate scheduler is tied to self.num_epochs -- set to None to ignore
-        self.early_stop_epoch = 400
+        self.early_stop_epoch = 800
         
         # parameter to determine if we want to have gaussian noise in our transforms -- We don't want it when training for scar segmentation
         self.gaussian_noise_transform = False
