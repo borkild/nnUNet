@@ -135,7 +135,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with -- for now have deep supervision off and reduced initial LR
-        self.initial_lr = 1e-3
+        self.initial_lr = 1e-4
         self.weight_decay = 3e-4 # originally 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
@@ -144,6 +144,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         self.num_epochs = 1000
         self.current_epoch = 0
         self.enable_deep_supervision = True
+        
+        self.loss_num_epochs = self.num_epochs*4
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -570,7 +572,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
-        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
+        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.loss_num_epochs)
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
