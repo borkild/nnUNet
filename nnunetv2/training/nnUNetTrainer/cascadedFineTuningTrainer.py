@@ -135,11 +135,11 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with -- for now have deep supervision off and reduced initial LR
-        self.initial_lr = 1e-4
-        self.weight_decay = 3e-5
+        self.initial_lr = 1e-3
+        self.weight_decay = 3e-4 # originally 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
-        self.num_iterations_per_epoch = 250
+        self.num_iterations_per_epoch = 50 # originally 250
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
         self.current_epoch = 0
@@ -149,6 +149,9 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
         # needed for predictions. We do sigmoid in case of (overlapping) regions
+        
+        # parameter to determine if we want to have gaussian noise in our transforms -- We don't want it when training for scar segmentation
+        self.gaussian_noise_transform = False
 
         self.num_input_channels = None  # -> self.initialize()
         self.network = None  # -> self.build_network_architecture()
@@ -171,6 +174,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
 
         ### initializing stuff for remembering things and such
         self._best_ema = None
+        self._min_val_loss = None
 
         ### inference things
         self.inference_allowed_mirroring_axes = None  # this variable is set in
@@ -756,6 +760,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
+            do_gaussian_noise: bool = False
     ) -> BasicTransform:
         transforms = []
         if do_dummy_2d_data_aug:
@@ -777,13 +782,17 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
 
-        transforms.append(RandomTransform(
-            GaussianNoiseTransform(
-                noise_variance=(0, 0.1),
-                p_per_channel=1,
-                synchronize_channels=True
-            ), apply_probability=0.1
-        ))
+        # only do gaussian noise if we explicitly tell it to
+        if do_gaussian_noise:
+            transforms.append(RandomTransform(
+                GaussianNoiseTransform(
+                    noise_variance=(0, 0.1),
+                    p_per_channel=1,
+                    synchronize_channels=True
+                ), apply_probability=0.1
+            ))
+        
+        
         transforms.append(RandomTransform(
             GaussianBlurTransform(
                 blur_sigma=(0.5, 1.),
@@ -807,6 +816,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 p_per_channel=1
             ), apply_probability=0.15
         ))
+        
+        # may want to consider removing this one
         transforms.append(RandomTransform(
             SimulateLowResolutionTransform(
                 scale=(0.5, 1),
@@ -817,6 +828,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 p_per_channel=0.5
             ), apply_probability=0.25
         ))
+        
+        
         transforms.append(RandomTransform(
             GammaTransform(
                 gamma=BGContrast((0.7, 1.5)),
@@ -1194,6 +1207,15 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             self._best_ema = self.logger.my_fantastic_logging['ema_fg_dice'][-1]
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
+            
+        if current_epoch%100 == 0:
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_' + str(current_epoch) + '.pth'))
+        
+        # save out at minimum validation loss
+        if self._min_val_loss is None or self.logger.my_fantastic_logging['val_losses'][-1] < self._min_val_loss:
+            self._min_val_loss = self.logger.my_fantastic_logging['val_losses'][-1]
+            self.print_to_log_file(f"Yayy! New best low val loss: {np.round(self._min_val_loss, decimals=4)}")
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_min_val.pth'))
 
         if self.local_rank == 0:
             self.logger.plot_progress_png(self.output_folder)

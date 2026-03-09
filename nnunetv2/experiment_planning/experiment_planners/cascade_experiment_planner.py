@@ -34,7 +34,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
                  suppress_transpose: bool = False,
                  cascade_networks: list = [],
                  cascade_configs: list = [],
-                 checkpoint_weight_tag: str = "final" # will expose this option upstream later
+                 checkpoint_weight_tag: str = "200" # will expose this option upstream later
                  ):
         """
         overwrite_target_spacing only affects 3d_fullres! (but by extension 3d_lowres which starts with fullres may
