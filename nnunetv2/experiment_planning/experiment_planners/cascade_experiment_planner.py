@@ -54,7 +54,9 @@ class CascadeExperimentPlanner(ExperimentPlanner):
             self.network_datasets.append( maybe_convert_to_dataset_name(cascade_networks[netIdx]) )
             
         self.configs = cascade_configs
-        self.checkpoint_weight_tag = checkpoint_weight_tag
+        self.checkpoint_weight_tag = [checkpoint_weight_tag]*len(self.network_datasets)
+        # quick and dirty for now
+        self.checkpoint_weight_tag =  ["min_val", "200"]
 
         # load dataset fingerprint
         if not isfile(join(preprocessed_folder, 'dataset_fingerprint.json')):
@@ -133,7 +135,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
             else:
                 print("Can't find results folder with saved networks for network " + str(netIdx) + " config " + self.configs[netIdx])
             # add desired weight config type
-            networks["network_"+str(netIdx)]["weight_save_type"] = self.checkpoint_weight_tag
+            networks["network_"+str(netIdx)]["weight_save_type"] = self.checkpoint_weight_tag[netIdx]
             # now load dataset json file, and grab number of input and output channels
             dataset = load_json( os.path.join(nnUNet_raw, self.network_datasets[netIdx], "dataset.json") )
             networks["network_"+str(netIdx)]["num_input_channels"] = len(dataset["channel_names"])
