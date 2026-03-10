@@ -697,7 +697,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             use_mask_for_norm=self.configuration_manager.use_mask_for_norm,
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
-            ignore_label=self.label_manager.ignore_label)
+            ignore_label=self.label_manager.ignore_label,
+            do_gaussian_noise=self.gaussian_noise_transform)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
