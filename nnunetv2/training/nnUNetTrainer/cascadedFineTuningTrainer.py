@@ -332,25 +332,14 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         networks = []
         # iterate through configs, building list of networks
         for netIdx in range(len(network_config_list)):
-            # if we enable deep supervision, it should only be on the last network
-            if netIdx != len(network_config_list)-1:
-                cur_network = self.build_individual_network_architecture(
-                    self.configuration_manager.individual_network_arch_class_name(netIdx),
-                    self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
-                    self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
-                    self.configuration_manager.get_num_input_channels(netIdx),
-                    self.configuration_manager.get_num_output_classes(netIdx), 
-                    False
-                )
-            else:
-                cur_network = self.build_individual_network_architecture(
-                    self.configuration_manager.individual_network_arch_class_name(netIdx),
-                    self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
-                    self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
-                    self.configuration_manager.get_num_input_channels(netIdx),
-                    self.configuration_manager.get_num_output_classes(netIdx), 
-                    enable_deep_supervision
-                ) 
+            cur_network = self.build_individual_network_architecture(
+                self.configuration_manager.individual_network_arch_class_name(netIdx),
+                self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
+                self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
+                self.configuration_manager.get_num_input_channels(netIdx),
+                self.configuration_manager.get_num_output_classes(netIdx), 
+                False
+            )
             
             # load in weights from previous training
             checkpoint = torch.load(self.get_fold_weight_path(netIdx), map_location=torch.device('cpu'), weights_only=False)
@@ -360,7 +349,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
 
         print(arch_init_kwargs)
         
-        return cascaded_networks(networks, **arch_init_kwargs)
+        return cascaded_networks(networks, deep_supervision=enable_deep_supervision, **arch_init_kwargs)
     
     
     # this is the same as build_network_architecture in the basic nnUnetTrainer
@@ -401,9 +390,12 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             deep_supervision=enable_deep_supervision)
 
     def _get_deep_supervision_scales(self):
+        # we use a w_i = i/sum(j_0 to j_N) for a cascade of N networks
         if self.enable_deep_supervision:
-            deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
-                self.configuration_manager.get_individual_configurations(-1).pool_op_kernel_sizes), axis=0))[:-1]
+            denomin = sum( list(range(len(self.configuration_manager.get_network_configs))) )
+            deep_supervision_scales = []
+            for cur_network in range(len(self.configuration_manager.get_network_configs)):
+                deep_supervision_scales.append((cur_network+1)/denomin) # add 1, as python indexing starts at 0
         else:
             deep_supervision_scales = None  # for train and val_transforms
         return deep_supervision_scales
@@ -471,6 +463,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
         # this gives higher resolution outputs more weight in the loss
 
+        # here we've made an adjustment. We want our final label to have the highest weight in the loss
         if self.enable_deep_supervision:
             deep_supervision_scales = self._get_deep_supervision_scales()
             weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
