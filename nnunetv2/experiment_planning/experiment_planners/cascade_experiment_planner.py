@@ -248,7 +248,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # for now, I am setting these mannually, will expose to command line evenetually
         # kwargs["intermediate_transforms"] = None # may implement this later
         kwargs["intermediate_outputs"] = False
-        kwargs["split_intermediate_outputs"] = True
+        kwargs["split_intermediate_outputs"] = False
         
         return kwargs
         
