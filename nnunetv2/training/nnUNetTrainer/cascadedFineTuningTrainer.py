@@ -964,6 +964,9 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         if not self.was_initialized:
             self.initialize()
 
+        # save a copy of the networks before fine-tuning is performed -- to verify the fine tuning worked
+        self.save_checkpoint(join(self.output_folder, 'checkpoint_before_train.pth'))
+        
         # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
         # which may not be present  when doing inference
         self.dataloader_train, self.dataloader_val = self.get_dataloaders()
