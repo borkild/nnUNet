@@ -135,7 +135,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with -- for now have deep supervision off and reduced initial LR
-        self.initial_lr = 1e-4
+        self.initial_lr = 1e-3 # may want to increase this? seems like some folds had more potential for learning
         self.weight_decay = 3e-4 # originally 3e-5
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
@@ -342,6 +342,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             )
             
             # load in weights from previous training
+            print("loading weights from " + self.get_fold_weight_path(netIdx))
             checkpoint = torch.load(self.get_fold_weight_path(netIdx), map_location=torch.device('cpu'), weights_only=False)
             cur_network.load_state_dict(checkpoint["network_weights"])
             # out network in list
@@ -759,6 +760,11 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             do_gaussian_noise: bool = False
     ) -> BasicTransform:
         transforms = []
+        
+        # may want to open with transform to put intermediate outputs into prediction class
+        
+        
+        
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
             transforms.append(Convert3DTo2DTransform())
@@ -1455,3 +1461,16 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         self.on_train_end()
 
 
+'''
+# debugging stuff for me
+if __name__ == "__main__":
+    planPath = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\nnUNet_preprocessed\\Dataset042_cascadeFineTuning\\nnUNetCascadePlans.json"
+    config = "cascade"
+    fold = 0
+    dataset_path = "X:\\CEG\ActiveProjects\\DL_Scar_Segment\\data\\nnUNet_preprocessed\\Dataset042_cascadeFineTuning\\dataset.json"
+
+    
+    tst = cascadednnUNetTrainer(load_json(planPath), config, fold, dataset_path)
+    
+    tst.build_network_architecture()
+'''
