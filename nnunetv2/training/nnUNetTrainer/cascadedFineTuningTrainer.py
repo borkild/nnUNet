@@ -342,7 +342,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             )
             
             # load in weights from previous training
-            print("loading weights from " + self.get_fold_weight_path(netIdx))
+            print("loading weights from " + self.get_fold_weight_path(netIdx) + f" for network {netIdx}")
             checkpoint = torch.load(self.get_fold_weight_path(netIdx), map_location=torch.device('cpu'), weights_only=False)
             cur_network.load_state_dict(checkpoint["network_weights"])
             # out network in list
