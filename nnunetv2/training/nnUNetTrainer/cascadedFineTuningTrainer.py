@@ -143,7 +143,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
         self.current_epoch = 0
-        self.enable_deep_supervision = True
+        self.enable_deep_supervision = False
         
         self.loss_num_epochs = self.num_epochs*4
 
@@ -964,7 +964,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         if not self.was_initialized:
             self.initialize()
 
-        # save a copy of the networks before fine-tuning is performed -- to verify the fine tuning worked
+        # save a copy of the networks before fine-tuning is performed -- use as reference to verify the fine tuning actually increased performance
         self.save_checkpoint(join(self.output_folder, 'checkpoint_before_train.pth'))
         
         # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
