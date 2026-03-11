@@ -216,37 +216,10 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # here we generate the architecture keyword args that are needed for the 
         # cascaded trainer to build the architecture
         kwargs = {}
-        no_diff = False
-        input_diff = False
-        for netIdx in range(len(arch_dict)-2):
-            # check to see if the input will be passed to each network
-            if netIdx == 0:
-                input_channels = arch_dict["network_"+str(netIdx)]["num_input_channels"]
-            cur_output_classes = arch_dict["network_"+str(netIdx)]["num_output_classes"] - 1 # we assume we will never give the background to the next network
-            nxt_input_channels = arch_dict["network_"+str(netIdx+1)]["num_input_channels"]
-            chan_diff = nxt_input_channels - cur_output_classes
-            # check for difference in number of channels from one network to another
-            if chan_diff == 0:
-                no_diff = True
-            elif chan_diff == input_channels:
-                input_diff = True
-            else:
-                print(f"Dimension mismatch! Networks {netIdx} and {netIdx+1} do not have "
-                      "compatible input and output sizes")
-                raise ValueError()
-        # now check to make sure we consistently hand the input to the network
-        if no_diff and input_diff:
-            print("Error! Some network appear to get the original input, while others do not. "
-                  "Mixing networks that do and don't recieve the input in a cascade is currently "
-                  "not supported.")
-        elif no_diff:
-            kwargs["input_to_all_networks"] = False
-        elif input_diff:
-            kwargs["input_to_all_networks"] = True
-
         # now we add the other parameters
-        # for now, I am setting these mannually, will expose to command line evenetually
+        # for now, I am setting these mannually, will expose to command line eventually, or have checks to auto-set
         # kwargs["intermediate_transforms"] = None # may implement this later
+        kwargs["input_to_all_networks"] = True
         kwargs["intermediate_outputs"] = False
         kwargs["split_intermediate_outputs"] = False
         
