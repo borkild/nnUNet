@@ -145,7 +145,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         self.current_epoch = 0
         self.enable_deep_supervision = False
         
-        self.loss_num_epochs = self.num_epochs*4
+        self.loss_num_epochs = self.num_epochs
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
