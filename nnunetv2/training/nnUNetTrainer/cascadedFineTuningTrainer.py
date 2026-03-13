@@ -350,7 +350,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
 
         print(arch_init_kwargs)
         
-        return cascaded_networks(networks, deep_supervision=enable_deep_supervision, **arch_init_kwargs)
+        return cascaded_networks(networks, deep_supervision=enable_deep_supervision)
     
     
     # this is the same as build_network_architecture in the basic nnUnetTrainer
