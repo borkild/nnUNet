@@ -72,6 +72,11 @@ from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 # we just import this ourselves, as we expect only to use a cascade with this trainer
 from dynamic_network_architectures.architectures.cascaded_networks import cascaded_networks
 
+from nnunetv2.training.data_augmentation.deep_supervision_pulling_cascade import PullSegApartForCascadeDSTransform
+
+from nnunetv2.training.dataloading.data_loader import nnUNetMultitaskCascadeDataLoader
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetMultitaskCascade
+
 
 class cascadednnUNetTrainer(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
@@ -228,7 +233,10 @@ class cascadednnUNetTrainer(nnUNetTrainer):
 
             self.loss = self._build_loss()
 
-            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+            if self.enable_deep_supervision:
+                self.dataset_class = nnUNetDatasetMultitaskCascade()
+            else:
+                self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
 
             # torch 2.2.2 crashes upon compiling CE loss
             # if self._do_i_compile():
@@ -390,7 +398,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             allow_init=True,
             deep_supervision=enable_deep_supervision)
 
-    def _get_deep_supervision_scales(self):
+    def _get_deep_supervision_weights(self):
         # we use a w_i = i/sum(j_0 to j_N) for a cascade of N networks
         if self.enable_deep_supervision:
             denomin = sum( list(range(len(self.configuration_manager.get_network_configs))) )
@@ -399,7 +407,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                 deep_supervision_scales.append((cur_network+1)/denomin) # add 1, as python indexing starts at 0
         else:
             deep_supervision_scales = None  # for train and val_transforms
-        return deep_supervision_scales
+        return np.array(deep_supervision_scales)
 
     def _set_batch_size_and_oversample(self):
         if not self.is_ddp:
@@ -466,8 +474,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
 
         # here we've made an adjustment. We want our final label to have the highest weight in the loss
         if self.enable_deep_supervision:
-            deep_supervision_scales = self._get_deep_supervision_scales()
-            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+            weights = self._get_deep_supervision_weights()
             if self.is_ddp and not self._do_i_compile():
                 # very strange and stupid interaction. DDP crashes and complains about unused parameters due to
                 # weights[-1] = 0. Interestingly this crash doesn't happen with torch.compile enabled. Strange stuff.
@@ -476,8 +483,6 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             else:
                 weights[-1] = 0
 
-            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-            weights = weights / weights.sum()
             # now wrap the loss
             loss = DeepSupervisionWrapper(loss, weights)
 
@@ -681,9 +686,8 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
 
-        # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
-        # outputs?
-        deep_supervision_scales = self._get_deep_supervision_scales()
+        # deep supervision weights here will work the same way for our purpose
+        deep_supervision_scales = self._get_deep_supervision_weights()
 
         (
             rotation_for_DA,
@@ -710,21 +714,36 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                                                         ignore_label=self.label_manager.ignore_label)
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-
-        dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
-                                 initial_patch_size,
-                                 self.configuration_manager.patch_size,
-                                 self.label_manager,
-                                 oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
-                                 probabilistic_oversampling=self.probabilistic_oversampling)
-        dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.label_manager,
-                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
-                                  probabilistic_oversampling=self.probabilistic_oversampling)
+        if self.enable_deep_supervision:
+            dl_tr = nnUNetMultitaskCascadeDataLoader(dataset_tr, self.batch_size,
+                                    initial_patch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.label_manager,
+                                    oversample_foreground_percent=self.oversample_foreground_percent,
+                                    sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                    probabilistic_oversampling=self.probabilistic_oversampling)
+            dl_val = nnUNetMultitaskCascadeDataLoader(dataset_val, self.batch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.label_manager,
+                                    oversample_foreground_percent=self.oversample_foreground_percent,
+                                    sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                    probabilistic_oversampling=self.probabilistic_oversampling)
+        else:
+            dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
+                                    initial_patch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.label_manager,
+                                    oversample_foreground_percent=self.oversample_foreground_percent,
+                                    sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                    probabilistic_oversampling=self.probabilistic_oversampling)
+            dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.label_manager,
+                                    oversample_foreground_percent=self.oversample_foreground_percent,
+                                    sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                    probabilistic_oversampling=self.probabilistic_oversampling)
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
@@ -760,10 +779,6 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             do_gaussian_noise: bool = False
     ) -> BasicTransform:
         transforms = []
-        
-        # may want to open with transform to put intermediate outputs into prediction class
-        
-        
         
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
@@ -906,7 +921,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             )
 
         if deep_supervision_scales is not None:
-            transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
+            transforms.append(PullSegApartForCascadeDSTransform())
 
         return ComposeTransforms(transforms)
 
@@ -942,7 +957,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             )
 
         if deep_supervision_scales is not None:
-            transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
+            transforms.append(PullSegApartForCascadeDSTransform())
         return ComposeTransforms(transforms)
 
     # we hand deep supervision to each network as we build, so we alter this function to pass it to the last network in the cascade
