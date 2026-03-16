@@ -322,6 +322,7 @@ class nnUNetDatasetMultitaskCascade(nnUNetDatasetBlosc2):
         seg_b2nd_file = join(self.source_folder, identifier + '_seg.b2nd')
         seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
         
+        print(seg.shape)
         # iterate through intermediate outputs
         intermediate_outputs = np.zeros((self.num_networks-1, *seg.shape))
         for curNetIdx in range(self.num_networks-1):
