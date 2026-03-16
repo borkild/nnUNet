@@ -127,6 +127,10 @@ class cascadednnUNetTrainer(nnUNetTrainer):
 
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
                                                 self.configuration_manager.data_identifier)
+        
+        print("preprocessed folder used: ")
+        print(self.preprocessed_dataset_folder)
+        
         self.dataset_class = None  # -> initialize
         # unlike the previous nnunet folder_with_segs_from_previous_stage is now part of the plans. For now it has to
         # be a different configuration in the same plans
