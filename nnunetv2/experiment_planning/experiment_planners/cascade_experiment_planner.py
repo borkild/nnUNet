@@ -232,8 +232,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         net0_plan = load_json(arch_dict["network_0"]["plan_file_path"])
         net0_config = net0_plan["configurations"][arch_dict["network_0"]["network_config"]]
         # list of keys to grab from network 0 config
-        keys_to_grab = ["data_identifier",
-                        "preprocessor_name",
+        keys_to_grab = ["preprocessor_name",
                         "batch_size",
                         "patch_size",
                         "median_image_size_in_voxels",
@@ -251,7 +250,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # build out list of other config details
         for key in keys_to_grab:
             other_config_details[key] = net0_config[key]
-
+        
         # check patch sizes for all networks -- make sure they are the same dimension
         # and ~ideally~ the same patch size
         for netIdx in range(1, len(arch_dict)-1):
@@ -318,6 +317,9 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         # build cascade keyword args
         cascade_kwargs = self.gen_cascade_kwargs(arch_config)
         cascaded_plan_dict["configurations"]["cascade"]["arch_kwargs"] = cascade_kwargs
+        
+        # get data identifier
+        cascaded_plan_dict["configurations"]["cascade"]["data_identifier"] = self.generate_data_identifier("cascade")
         
         # build other config parameters -- these mainly come from other plan files in the cascade
         other_config_details = self.grab_other_config_details(arch_config)
