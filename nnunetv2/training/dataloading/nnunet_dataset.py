@@ -322,15 +322,16 @@ class nnUNetDatasetMultitaskCascade(nnUNetDatasetBlosc2):
         seg_b2nd_file = join(self.source_folder, identifier + '_seg.b2nd')
         seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
         
-        print(seg.shape)
         # iterate through intermediate outputs
-        intermediate_outputs = np.zeros((self.num_networks-1, *seg.shape))
+        intermediate_outputs = np.zeros((self.num_networks-1, *seg.shape[1:]))
         for curNetIdx in range(self.num_networks-1):
             io_b2nd_file = join(self.source_folder, identifier + '_io_' + str(curNetIdx) + '.b2nd')
             intermediate_outputs[curNetIdx] = blosc2.open(urlpath=io_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
         
         # stack intermediate outputs with the segmentation -- makes dealing with transforms easier
         seg = np.concatenate((intermediate_outputs, seg), axis=0)
+        
+        print(seg.shape)
         
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
         return data, seg, intermediate_outputs, properties
