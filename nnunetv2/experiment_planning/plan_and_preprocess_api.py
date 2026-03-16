@@ -157,6 +157,14 @@ def preprocess_dataset(dataset_id: int,
     plans_file = join(nnUNet_preprocessed, dataset_name, plans_identifier + '.json')
     if cascade:
         cascade_plans_manager = CascadePlansManager(plans_file)
+        # if we're doing a cascade, we need to handle preprocessing a bit different
+        # we preprocess for each network in the cascade, inside a temp folder.
+        # The inputs for the first network get moved over, as do the outputs for the last
+        # any intermediate segmentations are also moved and renamed
+        
+        # make temp dir
+        os.mkdir( os.path.join(nnUNet_preprocessed, dataset_name, "tmp") )
+        
         # here, we get the configuration of the first network, and hand that to the default preprocessor
         config_manager = cascade_plans_manager.get_configuration(configurations[0])
         all_plans_managers = config_manager.get_network_plans
@@ -179,7 +187,33 @@ def preprocess_dataset(dataset_id: int,
             shutil.copytree(os.path.join(nnUNet_preprocessed, dataset_name, new_plans_identifier + "_" + c), 
                             os.path.join(nnUNet_preprocessed, dataset_name, plans_identifier + "_" + configurations[0]))
         
+        print("copying intermediate segmentations for deep supervision")
+        # iterate through each network in the cascade (except for final network) -- this is to grab any intermediate segmentations for deep supervision
+        for curNetIdx in range(cascade_plans_manager.get_num_networks - 1):
+            # get current configuration
+            config_manager = cascade_plans_manager.get_configuration(configurations[curNetIdx])
+            all_plans_managers = config_manager.get_network_plans
+            all_configs = config_manager.get_network_configs
+            cur_plans_manager = all_plans_managers[curNetIdx]
+            cur_dataset_name = cur_plans_manager.dataset_name
+            new_plans_identifier = "nnUNetPlans"
+            other_net_preproc_path = os.path.join(nnUNet_preprocessed, cur_dataset_name, new_plans_identifier + "_" + all_configs[curNetIdx])
+            if not os.path.isdir(other_net_preproc_path):
+                print("Could not find preprocessed folder: " + other_net_preproc_path)
+                print("Make sure this network is trained, and preprocessing as been run on this data!")
+            # now we iterate through files in preprocessed folder for current network
+            cur_preproc_list = os.listdir(other_net_preproc_path)
+            for curFile in cur_preproc_list:
+                if "_seg.b2nd" in curFile:
+                    # get identifier from current file
+                    split_extension = curFile.split(".")
+                    split_identifier = curFile.split("_")
+                    # copy file over
+                    shutil.copy( os.path.join(other_net_preproc_path, curFile),
+                                os.path.join(os.path.join(nnUNet_preprocessed, dataset_name, plans_identifier + "_" + configurations[0], 
+                                                          split_identifier[0] + "_io_" + str(curNetIdx) + ".b2nd")) )
             
+                      
     else:
         plans_manager = PlansManager(plans_file)
         for n, c in zip(num_processes, configurations):
