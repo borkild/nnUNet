@@ -189,7 +189,7 @@ def preprocess_dataset(dataset_id: int,
         
         print("copying intermediate segmentations for deep supervision")
         # iterate through each network in the cascade (except for final network) -- this is to grab any intermediate segmentations for deep supervision
-        for curNetIdx in range(cascade_plans_manager.get_num_networks - 1):
+        for curNetIdx in range( config_manager.get_num_networks - 1):
             # get current configuration
             config_manager = cascade_plans_manager.get_configuration(configurations[curNetIdx])
             all_plans_managers = config_manager.get_network_plans
