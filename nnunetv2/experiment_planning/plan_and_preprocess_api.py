@@ -158,12 +158,8 @@ def preprocess_dataset(dataset_id: int,
     if cascade:
         cascade_plans_manager = CascadePlansManager(plans_file)
         # if we're doing a cascade, we need to handle preprocessing a bit different
-        # we preprocess for each network in the cascade, inside a temp folder.
-        # The inputs for the first network get moved over, as do the outputs for the last
-        # any intermediate segmentations are also moved and renamed
-        
-        # make temp dir
-        os.mkdir( os.path.join(nnUNet_preprocessed, dataset_name, "tmp") )
+        # preprocess the inputs and outputs using the basic settings from the first network
+        # we then grab intermediate segmentations from their own preprocessed folders
         
         # here, we get the configuration of the first network, and hand that to the default preprocessor
         config_manager = cascade_plans_manager.get_configuration(configurations[0])
