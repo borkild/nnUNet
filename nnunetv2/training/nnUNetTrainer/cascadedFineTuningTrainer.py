@@ -234,7 +234,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             self.loss = self._build_loss()
 
             if self.enable_deep_supervision:
-                self.dataset_class = nnUNetDatasetMultitaskCascade()
+                self.dataset_class = nnUNetDatasetMultitaskCascade
             else:
                 self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
 
