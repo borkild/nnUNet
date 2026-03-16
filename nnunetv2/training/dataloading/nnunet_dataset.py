@@ -331,8 +331,6 @@ class nnUNetDatasetMultitaskCascade(nnUNetDatasetBlosc2):
         # stack intermediate outputs with the segmentation -- makes dealing with transforms easier
         seg = np.concatenate((intermediate_outputs, seg), axis=0)
         
-        print(seg.shape)
-        
         properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
         return data, seg, intermediate_outputs, properties
 
