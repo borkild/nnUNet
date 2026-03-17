@@ -330,7 +330,7 @@ class cascadednnUNetTrainer(nnUNetTrainer):
                                    arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
                                    num_input_channels: int,
                                    num_output_channels: int,
-                                   enable_deep_supervision: bool = True):
+                                   enable_deep_supervision: bool = False):
         # check to make sure architecture class name matches cascaded architecture, anything else means the wrong options have been selected
         if architecture_class_name != "dynamic_network_architectures.architectures.cascaded_networks.cascaded_networks" or not "cascaded_networks" in architecture_class_name:
             raise ValueError("Using cascaded trainer, we expect a cascaded network architecture")  
@@ -976,7 +976,24 @@ class cascadednnUNetTrainer(nnUNetTrainer):
         if isinstance(mod, OptimizedModule):
             mod = mod._orig_mod
 
-        mod.networks[-1].decoder.deep_supervision = enabled
+        mod.deep_supervision = enabled
+        
+    
+    # will need to set all network deep superivision to off if we implement super deep supervision
+    def set_network_deep_supervision_enabled(self, enabled: bool):
+        """
+        This function is specific for the default architecture in nnU-Net. If you change the architecture, there are
+        chances you need to change this as well!
+        """
+        if self.is_ddp:
+            mod = self.network.module
+        else:
+            mod = self.network
+        if isinstance(mod, OptimizedModule):
+            mod = mod._orig_mod
+
+        mod.networks[-1].decoder.deep_supervision = enabled   
+    
 
     def on_train_start(self):
         if not self.was_initialized:
