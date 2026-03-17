@@ -56,7 +56,7 @@ class CascadeExperimentPlanner(ExperimentPlanner):
         self.configs = cascade_configs
         self.checkpoint_weight_tag = [checkpoint_weight_tag]*len(self.network_datasets)
         # quick and dirty for now
-        self.checkpoint_weight_tag =  ["min_val", "200"]
+        self.checkpoint_weight_tag =  ["50", "200"]
 
         # load dataset fingerprint
         if not isfile(join(preprocessed_folder, 'dataset_fingerprint.json')):
