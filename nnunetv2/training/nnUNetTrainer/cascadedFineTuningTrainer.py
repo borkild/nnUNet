@@ -406,11 +406,12 @@ class cascadednnUNetTrainer(nnUNetTrainer):
             deep_supervision_scales = []
             for cur_network in range(len(self.configuration_manager.get_network_configs)):
                 deep_supervision_scales.append((cur_network+1)/denomin) # add 1, as python indexing starts at 0
+            deep_supervision_scales = np.array(deep_supervision_scales)
         else:
             deep_supervision_scales = None  # for train and val_transforms
             
         # hard coding this to test
-        return np.array([0.10, 0.90])
+        return deep_supervision_scales
 
     def _set_batch_size_and_oversample(self):
         if not self.is_ddp:
