@@ -17,7 +17,7 @@ def find_high_confidence_outputs(target_folder: str, txtFileSavePath: str, backg
             noBG_output = np.delete(output, background_channel, axis=0)
             max_vals = np.max(noBG_output, axis=(1,2,3))
             if np.sum( max_vals > confidence_threshold ) == noBG_output.shape[0]:
-                high_confidence_outputs.append(curScan)
+                high_confidence_outputs.append( os.path.join(target_folder, curScan) )
     # write outputs to text file
     writeListToTextFile(high_confidence_outputs, txtFileSavePath)
     
