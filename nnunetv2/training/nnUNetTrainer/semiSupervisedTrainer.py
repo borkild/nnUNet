@@ -147,16 +147,15 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
         self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 50 # originally 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000
+        self.num_epochs = 1000 # may want to play around with this and the number of iterations per epoch
         self.current_epoch = 0
         self.enable_deep_supervision = False
         
         self.loss_num_epochs = self.num_epochs
         
         # semi-supervised hyperparameters
-        self.max_iter = 10
         self.confidence_thresh = 0.90
-        self.current_iter = 0
+        self.current_iter = None
         
 
         ### Dealing with labels/regions
@@ -326,13 +325,21 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
         fullPath = os.path.join(network_weight_path[netIdx], "fold_"+str(self.fold), "checkpoint_"+chckpts[netIdx]+".pth")
         return fullPath
     
-    # this function updates our dataset paths as we move through iterations
-    def update_dataset_paths(self):
-        if self.current_iter != 0:
-            self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
-                                                self.configuration_manager.data_identifier, "iterations", "mixed_dataset_" + str(self.current_iter).zfill(3))
-            self.output_folder = join(self.output_folder_base, f'fold_{self.fold}', 'iterations', "mixed_dataset_" + str(self.current_iter).zfill(3))
-        
+    # get our current iteration based on previous iterations in results folder
+    # note that the checkpoint_final.pth file must be present to consider that iteration complete
+    def get_current_iteration(self):
+        iteration_dirlist = os.listdir( join(self.output_folder, "iterations") )
+        max_iter = 0
+        for curDir in iteration_dirlist:
+            if "mixed_dataset_" in curDir and os.path.isfile( join(self.output_folder, "iterations", curDir, "checkpoint_final.pth") ):
+                cur_iter = curDir[-3:]
+                if int(cur_iter) > max_iter:
+                    max_iter = cur_iter
+                    
+        self.current_iter = cur_iter
+         
+    def get_previous_iteration_weight_path(self):
+        return join(self.output_folder, "iterations", "mixed_dataset_"+str(self.current_iter).zfill(3), "checkpoint_min_val.pth")
     
     # this function handles building our cascade
     def build_network_architecture(self,
@@ -361,16 +368,27 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
                 False
             )
             
-            # load in weights from previous training
-            print("loading weights from " + self.get_fold_weight_path(netIdx) + f" for network {netIdx}")
-            checkpoint = torch.load(self.get_fold_weight_path(netIdx), map_location=torch.device('cpu'), weights_only=False)
-            cur_network.load_state_dict(checkpoint["network_weights"])
-            # out network in list
-            networks.append(cur_network)
-
-        print(arch_init_kwargs)
+            if self.current_iter == 0:
+                # load in weights from previous training
+                print("loading weights from " + self.get_fold_weight_path(netIdx) + f" for network {netIdx}")
+                checkpoint = torch.load(self.get_fold_weight_path(netIdx), map_location=torch.device('cpu'), weights_only=False)
+                cur_network.load_state_dict(checkpoint["network_weights"])
+                # out network in list
+                networks.append(cur_network)
+                print(arch_init_kwargs)
         
-        return cascaded_networks(networks, deep_supervision=enable_deep_supervision)
+                return cascaded_networks(networks, deep_supervision=enable_deep_supervision)
+            else:
+                networks.append(cur_network)
+                print(arch_init_kwargs)
+        
+                cascade = cascaded_networks(networks, deep_supervision=enable_deep_supervision)
+                # since we updated the cascade, we initialize weights here instead
+                chkpt = torch.load(self.get_previous_iteration_weight_path(), map_location=torch.device('cpu'), weights_only=False)
+                cascade.load_state_dict(chkpt["network_weights"])
+                
+                return cascade
+                
     
     
     # this is the same as build_network_architecture in the basic nnUnetTrainer
@@ -1291,6 +1309,7 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
                     'logging': self.logger.get_checkpoint(),
                     '_best_ema': self._best_ema,
                     'current_epoch': self.current_epoch + 1,
+                    'current_iteration': self.current_iter,
                     'init_args': self.my_init_kwargs,
                     'trainer_name': self.__class__.__name__,
                     'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
