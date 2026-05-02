@@ -76,6 +76,7 @@ from nnunetv2.training.data_augmentation.deep_supervision_pulling_cascade import
 
 from nnunetv2.training.dataloading.data_loader import nnUNetSemiSupervisedDataLoader
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetMultitaskCascade
+from nnunetv2.training.semiSupervised_functions.one_hot_targets_transform import oneHotFloatTargets
 
 
 class semiSupervisednnUNetTrainer(nnUNetTrainer):
@@ -747,37 +748,22 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
                                                         ignore_label=self.label_manager.ignore_label)
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
-        if self.enable_deep_supervision:
-            dl_tr = nnUNetMultitaskCascadeDataLoader(dataset_tr, self.batch_size,
-                                    initial_patch_size,
-                                    self.configuration_manager.patch_size,
-                                    self.label_manager,
-                                    oversample_foreground_percent=self.oversample_foreground_percent,
-                                    sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
-                                    probabilistic_oversampling=self.probabilistic_oversampling)
-            dl_val = nnUNetMultitaskCascadeDataLoader(dataset_val, self.batch_size,
-                                    self.configuration_manager.patch_size,
-                                    self.configuration_manager.patch_size,
-                                    self.label_manager,
-                                    oversample_foreground_percent=self.oversample_foreground_percent,
-                                    sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
-                                    probabilistic_oversampling=self.probabilistic_oversampling)
-        else:
-            dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
-                                    initial_patch_size,
-                                    self.configuration_manager.patch_size,
-                                    self.label_manager,
-                                    oversample_foreground_percent=self.oversample_foreground_percent,
-                                    sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
-                                    probabilistic_oversampling=self.probabilistic_oversampling)
-            dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
-                                    self.configuration_manager.patch_size,
-                                    self.configuration_manager.patch_size,
-                                    self.label_manager,
-                                    oversample_foreground_percent=self.oversample_foreground_percent,
-                                    sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
-                                    probabilistic_oversampling=self.probabilistic_oversampling)
 
+        dl_tr = nnUNetSemiSupervisedDataLoader(dataset_tr, self.batch_size,
+                                    initial_patch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.label_manager,
+                                    oversample_foreground_percent=self.oversample_foreground_percent,
+                                    sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                    probabilistic_oversampling=self.probabilistic_oversampling)
+        dl_val = nnUNetSemiSupervisedDataLoader(dataset_val, self.batch_size,
+                                self.configuration_manager.patch_size,
+                                self.configuration_manager.patch_size,
+                                self.label_manager,
+                                oversample_foreground_percent=self.oversample_foreground_percent,
+                                sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                probabilistic_oversampling=self.probabilistic_oversampling)
+        
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
@@ -956,6 +942,12 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
         if deep_supervision_scales is not None:
             transforms.append(PullSegApartForCascadeDSTransform())
 
+        # explicitly do one hot encoding of target here -- this is for the unlabeled scans
+        transforms.append(RandomTransform(
+            oneHotFloatTargets()
+        ))
+        
+        
         return ComposeTransforms(transforms)
 
     @staticmethod
@@ -1533,13 +1525,12 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
 '''
 # debugging stuff for me
 if __name__ == "__main__":
-    planPath = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\nnUNet_preprocessed\\Dataset042_cascadeFineTuning\\nnUNetCascadePlans.json"
+    planPath = "C:\\Users\\Ben Orkild\\Documents\\nnUnet_local_data\\nnUNet_preprocessed\\Dataset044_cascadeFineTuning\\nnUNetCascadePlans.json"
     config = "cascade"
     fold = 0
-    dataset_path = "X:\\CEG\ActiveProjects\\DL_Scar_Segment\\data\\nnUNet_preprocessed\\Dataset042_cascadeFineTuning\\dataset.json"
-
+    dataset_path = "C:\\Users\\Ben Orkild\\Documents\\nnUnet_local_data\\nnUNet_preprocessed\\Dataset044_cascadeFineTuning\\dataset.json"
     
-    tst = cascadednnUNetTrainer(load_json(planPath), config, fold, dataset_path)
+    tst = semiSupervisednnUNetTrainer(load_json(planPath), config, fold, dataset_path)
     
-    tst.build_network_architecture()
+    print(tst.get_training_transforms())
 '''
