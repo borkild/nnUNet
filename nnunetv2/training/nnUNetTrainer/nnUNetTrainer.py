@@ -200,6 +200,7 @@ class nnUNetTrainer(object):
         ### initializing stuff for remembering things and such
         self._best_ema = None
         self._min_val_loss = None
+        self._min_diff_loss = None
 
         ### inference things
         self.inference_allowed_mirroring_axes = None  # this variable is set in
@@ -1199,6 +1200,10 @@ class nnUNetTrainer(object):
             self.print_to_log_file(f"Yayy! New best low val loss: {np.round(self._min_val_loss, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_min_val.pth'))
         
+        if self._min_diff_loss is None or np.abs( self.logger.my_fantastic_logging['train_losses'][-1] - self.logger.my_fantastic_logging['val_losses'][-1] ) < self._min_diff_loss:
+            self._min_diff_loss = np.abs( self.logger.my_fantastic_logging['train_losses'][-1] - self.logger.my_fantastic_logging['val_losses'][-1] )
+            self.print_to_log_file(f"Yayy! New best low diff loss: {np.round(self._min_diff_loss, decimals=4)}")
+            self.save_checkpoint(join(self.output_folder, 'checkpoint_min_diff.pth'))
             
 
         if self.local_rank == 0:
