@@ -22,14 +22,17 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
     os.mkdir( ppPath )
     
     # make folders for dataset_000 -- which just corresponds to our intial training on just labeled data
-    dataset_raw = os.path.join(rawPath, "mixed_dataset_000")
-    dataset_pp = os.path.join(ppPath, "mixed_dataset_000")
-    dataset_res = os.path.join(resultsPath, "mixed_dataset_000")
+    dataset_raw = os.path.join(rawPath, "Dataset_mixed_001")
+    dataset_pp = os.path.join(ppPath, "Dataset_mixed_001")
+    dataset_res = os.path.join(resultsPath, "Dataset_mixed_001")
     
     # copy original everything from labeled training into _000 folders
+    print("copying raw files")
     shutil.copytree(nnUnet_raw_dataset_path, dataset_raw, ignore=shutil.ignore_patterns("iterations"))
+    print("copying preprocessed files")
     shutil.copytree(nnUnet_preprocessed_dataset_path, dataset_pp, ignore=shutil.ignore_patterns("iterations"))
-    shutil.copytree(nnUnet_results_dataset_path, dataset_res, ignore=shutil.ignore_patterns("iterations"))
+    print("copying results files")
+    shutil.copytree(nnUnet_results_dataset_path, dataset_res, ignore=shutil.ignore_patterns("iterations", "train", "validation", "*Plots", "*.xlsx", "tstInference"))
     
     # here we also set up our temporary directory for storing predictions on unlabeled data after each fold
     if not os.path.isdir( os.path.join(nnUnet_results_dataset_path, "tmp_outputs") ):
@@ -38,5 +41,11 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
         os.mkdir( os.path.join(nnUnet_results_dataset_path, "tmp_outputs", "fold_"+str(fold)) )
     
 if __name__ == "__main__":
+    '''
+    raw = "D:\\DeepLearningData\\nn_Unet_test\\nnUNet_raw\\Dataset031_cascadeFineTuning"
+    pp = "D:\\DeepLearningData\\nn_Unet_test\\nnUNet_preprocessed\\Dataset031_cascadeFineTuning"
+    results = "D:\\DeepLearningData\\nn_Unet_test\\nnUNet_results\\Dataset031_cascadeFineTuning"
+    setup_iteration1(raw, pp, results, 0)
+    '''
     fire.Fire(setup_iteration1)
         

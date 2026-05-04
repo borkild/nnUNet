@@ -6,7 +6,7 @@ import fire
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
 
 def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list: str, overall_dataset_path: str, output_file_format: str = ".nrrd"):
-    new_dataset_loc = os.path.join(overall_dataset_path, "iterations", "mixed_dataset_" + str(current_iteration).zfill(3) )
+    new_dataset_loc = os.path.join(overall_dataset_path, "iterations", "Dataset_mixed_" + str(current_iteration).zfill(3) )
     nd_image_path = os.path.join(new_dataset_loc, "imagesTr")
     nd_label_path = os.path.join(new_dataset_loc, "labelsTr")
     unlabeled_folder_path = os.path.join(overall_dataset_path, "unlabeledimagesTr")
@@ -37,7 +37,7 @@ def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list
         save_npz_as_nrrd(curPath, outPath)
         
     # create and save dataset.json
-    prev_dataset_loc = os.path.join(overall_dataset_path, "iterations", "mixed_dataset_" + str(current_iteration-1).zfill(3) )
+    prev_dataset_loc = os.path.join(overall_dataset_path, "iterations", "Dataset_mixed_" + str(current_iteration-1).zfill(3) )
     prev_dataset_json = load_json( join(prev_dataset_loc, "splits_final.json") )
     # overwrite number of scans, and write to new dataset location
     prev_dataset_json["numTraining"] = len( os.listdir(nd_image_path) )

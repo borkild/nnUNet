@@ -16,7 +16,7 @@ def update_split_file(current_preprocessed_path: str, original_preprocessed_path
     # now combine original split with unlabled data for this fold
     original_split[cur_fold]['train'] = original_split[cur_fold]['train'] + unlabeled_IDs
     # save out json
-    final_save_path = join(current_preprocessed_path, "mixed_dataset_"+str(cur_iteration).zfill(3), "splits_final.json")
+    final_save_path = join(current_preprocessed_path, "Dataset_mixed_"+str(cur_iteration).zfill(3), "splits_final.json")
     save_json(original_split, final_save_path)
     
 
