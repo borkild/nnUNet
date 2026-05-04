@@ -18,8 +18,10 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
     ppPath = os.path.join(nnUnet_preprocessed_dataset_path, "iterations", "fold_"+str(fold))
     resultsPath = os.path.join(nnUnet_results_dataset_path, "iterations")
     
-    os.mkdir( rawPath )
-    os.mkdir( ppPath )
+    if not os.isdir(rawPath):
+        os.mkdir( rawPath )
+    if not os.isdir(ppPath):
+        os.mkdir( ppPath )
     
     # make folders for dataset_000 -- which just corresponds to our intial training on just labeled data
     dataset_raw = os.path.join(rawPath, "Dataset_mixed_001")
@@ -27,10 +29,12 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
     dataset_res = os.path.join(resultsPath, "Dataset_mixed_001")
     
     # copy original everything from labeled training into _000 folders
-    print("copying raw files")
-    shutil.copytree(nnUnet_raw_dataset_path, dataset_raw, ignore=shutil.ignore_patterns("iterations"))
-    print("copying preprocessed files")
-    shutil.copytree(nnUnet_preprocessed_dataset_path, dataset_pp, ignore=shutil.ignore_patterns("iterations"))
+    if not os.path.isdir(dataset_raw):
+        print("copying raw files")
+        shutil.copytree(nnUnet_raw_dataset_path, dataset_raw, ignore=shutil.ignore_patterns("iterations"))
+    if not os.path.isdir(dataset_pp):
+        print("copying preprocessed files")
+        shutil.copytree(nnUnet_preprocessed_dataset_path, dataset_pp, ignore=shutil.ignore_patterns("iterations"))
     
     # need to check on results folder -- as this one is shared between folds
     if not os.path.isdir(dataset_res):
