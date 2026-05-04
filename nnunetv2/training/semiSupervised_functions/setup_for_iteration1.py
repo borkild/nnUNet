@@ -32,7 +32,8 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
     print("copying preprocessed files")
     shutil.copytree(nnUnet_preprocessed_dataset_path, dataset_pp, ignore=shutil.ignore_patterns("iterations"))
     print("copying results files")
-    shutil.copytree(nnUnet_results_dataset_path, dataset_res, ignore=shutil.ignore_patterns("iterations", "train", "validation", "*Plots", "*.xlsx", "tstInference"))
+    shutil.copytree(nnUnet_results_dataset_path, dataset_res, 
+                    ignore=shutil.ignore_patterns("iterations", "train", "validation", "*Plots", "*.xlsx", "tstInference", "*.txt", "*.png", "*.pth"))
     
     # here we also set up our temporary directory for storing predictions on unlabeled data after each fold
     if not os.path.isdir( os.path.join(nnUnet_results_dataset_path, "tmp_outputs") ):
