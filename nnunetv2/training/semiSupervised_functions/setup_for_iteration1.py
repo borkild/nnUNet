@@ -18,9 +18,9 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
     ppPath = os.path.join(nnUnet_preprocessed_dataset_path, "iterations", "fold_"+str(fold))
     resultsPath = os.path.join(nnUnet_results_dataset_path, "iterations")
     
-    if not os.isdir(rawPath):
+    if not os.path.isdir(rawPath):
         os.mkdir( rawPath )
-    if not os.isdir(ppPath):
+    if not os.path.isdir(ppPath):
         os.mkdir( ppPath )
     
     # make folders for dataset_000 -- which just corresponds to our intial training on just labeled data
