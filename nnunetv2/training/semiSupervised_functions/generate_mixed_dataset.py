@@ -28,14 +28,13 @@ def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list
     
     # save scans out in required format (stuck with .nrrd for now)
     for curScan in unlabeled_scans:
-        curPath = os.path.join(unlabeled_folder_path, curScan)
-        id = curScan.split(".")
-        id = id[0].split("/")
-        outPath = os.path.join(nd_label_path, id[-1]+output_file_format)
+        id = curScan.split("/")
+        id = id[-1].split(".")
+        outPath = os.path.join(nd_label_path, id[0]+output_file_format)
         # copy image
-        shutil.copy( os.path.join(unlabeled_folder_path, id[-1] + output_file_format), nd_image_path )
+        shutil.copy( os.path.join(unlabeled_folder_path, id[0] + output_file_format), nd_image_path )
         # copy label
-        save_npz_as_nrrd(curPath, outPath)
+        save_npz_as_nrrd(curScan, outPath)
         
     # create and save dataset.json
     prev_dataset_loc = os.path.join(overall_dataset_path, "iterations", "fold_" + str(cur_fold), "Dataset_mixed_" + str(current_iteration-1).zfill(3) )
