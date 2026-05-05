@@ -71,7 +71,7 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     outputHeader = {}
     # check for origin and spacing fields
     if "space directions" in nrrdHeader:
-        outputHeader["spacings"] = np.diag(nrrdHeader["space directions"])
+        outputHeader["space directions"] = nrrdHeader["space directions"]
     elif "spacings" in nrrdHeader:
         outputHeader["spacings"] = nrrdHeader["spacings"]
     
