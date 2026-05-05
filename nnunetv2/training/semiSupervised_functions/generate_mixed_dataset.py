@@ -34,9 +34,9 @@ def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list
         # copy image
         shutil.copy( os.path.join(unlabeled_folder_path, id[0] + "_0000" + output_file_format), nd_image_path )
         # get rid of new line if it is in string
-        npz_cur_path = curScan.split("\\")
+        npz_cur_path = curScan.replace("\n", "")
         # copy label
-        save_npz_as_nrrd(npz_cur_path[0], outPath)
+        save_npz_as_nrrd(npz_cur_path, outPath)
         
     # create and save dataset.json
     prev_dataset_loc = os.path.join(overall_dataset_path, "iterations", "fold_" + str(cur_fold), "Dataset_mixed_" + str(current_iteration-1).zfill(3) )
