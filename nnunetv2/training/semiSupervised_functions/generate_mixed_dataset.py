@@ -80,6 +80,9 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     
     if "space origin" in nrrdHeader:
         outputHeader["space origin"] = nrrdHeader["space origin"]
+        
+    if "space" in nrrdHeader:
+        outputHeader["space"] = nrrdHeader["space"]
     
     print("Writing: " + label_path_to_write)
     nrrd.write(label_path_to_write, noBG_pred, outputHeader)
