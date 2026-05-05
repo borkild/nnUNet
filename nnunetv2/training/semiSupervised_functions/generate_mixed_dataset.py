@@ -32,7 +32,7 @@ def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list
         id = id[-1].split(".")
         outPath = os.path.join(nd_label_path, id[0]+output_file_format)
         # copy image
-        shutil.copy( os.path.join(unlabeled_folder_path, id[0] + output_file_format), nd_image_path )
+        shutil.copy( os.path.join(unlabeled_folder_path, id[0] + "_0000" + output_file_format), nd_image_path )
         # copy label
         save_npz_as_nrrd(curScan, outPath)
         
