@@ -65,7 +65,7 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     # load in nrrd as well, this way we can get spacing and origin for the nrrd file we write
     basic_path = os.path.split(npz_path)
     scan_id = basic_path[-1].split(".")
-    _, nrrdHeader = nrrd.read(basic_path[0] + scan_id[0] + ".nrrd")
+    _, nrrdHeader = nrrd.read( os.path.join(basic_path[0], scan_id[0] + ".nrrd" ) )
     outputHeader = {}
     # check for origin and spacing fields
     if "space directions" in nrrdHeader:
