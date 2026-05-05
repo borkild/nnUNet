@@ -82,13 +82,14 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     
     
 if __name__ == "__main__":
+    '''
     cur_iter = 2
     unlabeled_file_txt = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\quick_testing\\semi_supervised_test\\nnUNet_results\\Dataset031_cascadeFineTuning\\tmp_outputs\\fold_0\\high_conf.txt"
     dataset_path = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\quick_testing\\semi_supervised_test\\nnUNet_raw\\Dataset031_cascadeFineTuning"
     curFold = 0
-    
     generate_mixed_label_dataset(cur_iter, unlabeled_file_txt, dataset_path, curFold)
+    '''
     
-    #fire.Fire(generate_mixed_label_dataset)
+    fire.Fire(generate_mixed_label_dataset)
     
     
