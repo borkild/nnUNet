@@ -63,8 +63,9 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     # for now we assume the background is the first dimension
     noBG_pred = np.delete(prediction, 0, axis=0)
     # load in nrrd as well, this way we can get spacing and origin for the nrrd file we write
-    basic_path = npz_path.split(".")
-    _, nrrdHeader = nrrd.read(basic_path[0] + ".nrrd")
+    basic_path = os.path.split(npz_path)
+    scan_id = basic_path[-1].split(".")
+    _, nrrdHeader = nrrd.read(basic_path[0] + scan_id[0] + ".nrrd")
     outputHeader = {}
     # check for origin and spacing fields
     if "space directions" in nrrdHeader:
