@@ -4,6 +4,7 @@ import nrrd
 import shutil
 import fire
 from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+import matplotlib.pyplot as plt
 
 def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list: str, overall_dataset_path: str, 
                                  cur_fold: int, output_file_format: str = ".nrrd"):
@@ -64,11 +65,13 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     noBG_pred = np.delete(prediction, 0, axis=0)
     # squeeze to get rid of dimensions of 1
     noBG_pred = np.squeeze(noBG_pred)
+    # swap z to last dimension
+    noBG_pred = np.transpose(noBG_pred, axes=(2,1,0))
     # load in nrrd as well, this way we can get spacing and origin for the nrrd file we write
     basic_path = os.path.split(npz_path)
     scan_id = basic_path[-1].split(".")
     _, nrrdHeader = nrrd.read( os.path.join(basic_path[0], scan_id[0] + ".nrrd" ) )
-    outputHeader = {"encoding": "raw"}
+    outputHeader = {}
     # check for origin and spacing fields
     if "space directions" in nrrdHeader:
         outputHeader["space directions"] = nrrdHeader["space directions"]
