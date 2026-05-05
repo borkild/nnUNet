@@ -62,6 +62,8 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     prediction = prediction_data["probabilities"]
     # for now we assume the background is the first dimension
     noBG_pred = np.delete(prediction, 0, axis=0)
+    # squeeze to get rid of dimensions of 1
+    noBG_pred = np.squeeze(noBG_pred)
     # load in nrrd as well, this way we can get spacing and origin for the nrrd file we write
     basic_path = os.path.split(npz_path)
     scan_id = basic_path[-1].split(".")
