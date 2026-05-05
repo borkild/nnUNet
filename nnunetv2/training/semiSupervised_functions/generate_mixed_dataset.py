@@ -68,7 +68,7 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     basic_path = os.path.split(npz_path)
     scan_id = basic_path[-1].split(".")
     _, nrrdHeader = nrrd.read( os.path.join(basic_path[0], scan_id[0] + ".nrrd" ) )
-    outputHeader = {}
+    outputHeader = {"encoding": "raw"}
     # check for origin and spacing fields
     if "space directions" in nrrdHeader:
         outputHeader["space directions"] = nrrdHeader["space directions"]
