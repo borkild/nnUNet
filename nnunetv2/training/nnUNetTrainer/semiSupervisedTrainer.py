@@ -332,15 +332,18 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
         iteration_dirlist = os.listdir( join(self.output_folder, "iterations") )
         max_iter = 0
         for curDir in iteration_dirlist:
-            if "mixed_dataset_" in curDir and os.path.isfile( join(self.output_folder, "iterations", curDir, "checkpoint_final.pth") ):
+            if "Dataset_mixed" in curDir and os.path.isfile( join(self.output_folder, "iterations", curDir, "checkpoint_final.pth") ):
                 cur_iter = curDir[-3:]
                 if int(cur_iter) > max_iter:
                     max_iter = cur_iter
                     
-        self.current_iter = cur_iter
+        self.current_iter = max_iter
          
     def get_previous_iteration_weight_path(self):
-        return join(self.output_folder, "iterations", "mixed_dataset_"+str(self.current_iter).zfill(3), "checkpoint_min_val.pth")
+        if self.current_iter == 2:
+            return join(self.output_folder, "iterations", "Dataset_mixed_"+str(self.current_iter).zfill(3), "checkpoint_before_train.pth")
+        else:
+            return join(self.output_folder, "iterations", "Dataset_mixed_"+str(self.current_iter).zfill(3), "checkpoint_min_val.pth")
     
     # this function handles building our cascade
     def build_network_architecture(self,
