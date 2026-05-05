@@ -40,7 +40,7 @@ def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list
         
     # create and save dataset.json
     prev_dataset_loc = os.path.join(overall_dataset_path, "iterations", "fold_" + str(cur_fold), "Dataset_mixed_" + str(current_iteration-1).zfill(3) )
-    prev_dataset_json = load_json( join(prev_dataset_loc, "splits_final.json") )
+    prev_dataset_json = load_json( join(prev_dataset_loc, "dataset.json") )
     # overwrite number of scans, and write to new dataset location
     prev_dataset_json["numTraining"] = len( os.listdir(nd_image_path) )
     json_path = join(new_dataset_loc, "dataset.json")
@@ -82,5 +82,13 @@ def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
     
     
 if __name__ == "__main__":
-    fire.Fire(generate_mixed_label_dataset)
+    cur_iter = 2
+    unlabeled_file_txt = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\quick_testing\\semi_supervised_test\\nnUNet_results\\Dataset031_cascadeFineTuning\\tmp_outputs\\fold_0\\high_conf.txt"
+    dataset_path = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\quick_testing\\semi_supervised_test\\nnUNet_raw\\Dataset031_cascadeFineTuning"
+    curFold = 0
+    
+    generate_mixed_label_dataset(cur_iter, unlabeled_file_txt, dataset_path, curFold)
+    
+    #fire.Fire(generate_mixed_label_dataset)
+    
     
