@@ -24,9 +24,9 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
         os.mkdir( ppPath )
     
     # make folders for dataset_000 -- which just corresponds to our intial training on just labeled data
-    dataset_raw = os.path.join(rawPath, "Dataset_mixed_001")
-    dataset_pp = os.path.join(ppPath, "Dataset_mixed_001")
-    dataset_res = os.path.join(resultsPath, "Dataset_mixed_001")
+    dataset_raw = os.path.join(rawPath, "Dataset001_mixed")
+    dataset_pp = os.path.join(ppPath, "Dataset001_mixed")
+    dataset_res = os.path.join(resultsPath, "Dataset001_mixed")
     
     # copy original everything from labeled training into _000 folders
     if not os.path.isdir(dataset_raw):

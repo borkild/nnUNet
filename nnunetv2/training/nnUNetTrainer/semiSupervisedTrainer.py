@@ -341,9 +341,9 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
          
     def get_previous_iteration_weight_path(self):
         if self.current_iter == 2:
-            return join(self.output_folder, "iterations", "Dataset_mixed_"+str(self.current_iter).zfill(3), "checkpoint_before_train.pth")
+            return join(self.output_folder, "iterations", "Dataset"+str(self.current_iter).zfill(3) + "_mixed", "checkpoint_before_train.pth")
         else:
-            return join(self.output_folder, "iterations", "Dataset_mixed_"+str(self.current_iter).zfill(3), "checkpoint_min_val.pth")
+            return join(self.output_folder, "iterations", "Dataset"+str(self.current_iter).zfill(3) + "_mixed", "checkpoint_min_val.pth")
     
     # this function handles building our cascade
     def build_network_architecture(self,
