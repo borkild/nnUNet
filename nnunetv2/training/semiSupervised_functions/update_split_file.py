@@ -22,13 +22,9 @@ def update_split_file(current_preprocessed_path: str, original_preprocessed_path
 
 
 def strip_fullPath_to_ID(fullPath: str):
-    tmp_path = fullPath.strip(".")
-    if os.name == "nt":
-        all_dirs = tmp_path[0].strip("\\")
-    else:
-        all_dirs = tmp_path[0].strip("/")
-    ID = all_dirs[-1]
-    return ID
+    tmp_path = os.path.split(fullPath)
+    ID = tmp_path[-1].split(".")
+    return ID[0]
     
 
 if __name__ == "__main__":
