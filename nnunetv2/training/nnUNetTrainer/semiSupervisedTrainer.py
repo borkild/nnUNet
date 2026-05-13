@@ -156,7 +156,7 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
         
         # semi-supervised hyperparameters
         self.confidence_thresh = 0.90
-        self.current_iter = None
+        self.current_iter = self.get_current_iteration()
         
 
         ### Dealing with labels/regions
@@ -337,7 +337,7 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
                 if int(cur_iter) > max_iter:
                     max_iter = cur_iter
                     
-        self.current_iter = max_iter
+        return max_iter
          
     def get_previous_iteration_weight_path(self):
         if self.current_iter == 2:
