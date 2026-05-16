@@ -329,21 +329,27 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
     # get our current iteration based on previous iterations in results folder
     # note that the checkpoint_final.pth file must be present to consider that iteration complete
     def get_current_iteration(self):
-        iteration_dirlist = os.listdir( join(self.output_folder, "iterations") )
+        iteration_dirlist = os.listdir( nnUNet_results )
         max_iter = 0
         for curDir in iteration_dirlist:
-            if "Dataset_mixed" in curDir and os.path.isfile( join(self.output_folder, "iterations", curDir, "checkpoint_final.pth") ):
+            if "_mixed" in curDir and os.path.isfile( join(nnUNet_results, curDir, 
+                                                           self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + self.configuration_name, 
+                                                           f"fold_{self.fold}","checkpoint_final.pth") ):
                 cur_iter = curDir[-3:]
                 if int(cur_iter) > max_iter:
                     max_iter = cur_iter
                     
-        return max_iter
+        return max_iter + 1
          
     def get_previous_iteration_weight_path(self):
         if self.current_iter == 2:
-            return join(self.output_folder, "iterations", "Dataset"+str(self.current_iter).zfill(3) + "_mixed", "checkpoint_before_train.pth")
+            return join(nnUNet_results, "Dataset"+str(self.current_iter - 1).zfill(3) + "_mixed", 
+                        self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + self.configuration_name, 
+                                                           f"fold_{self.fold}", "checkpoint_before_train.pth")
         else:
-            return join(self.output_folder, "iterations", "Dataset"+str(self.current_iter).zfill(3) + "_mixed", "checkpoint_min_val.pth")
+            return join(nnUNet_results, "Dataset"+str(self.current_iter - 1).zfill(3) + "_mixed", 
+                        self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + self.configuration_name, 
+                                                           f"fold_{self.fold}", "checkpoint_min_val.pth")
     
     # this function handles building our cascade
     def build_network_architecture(self,
