@@ -335,9 +335,10 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
             if "_mixed" in curDir and os.path.isfile( join(nnUNet_results, curDir, 
                                                            self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + self.configuration_name, 
                                                            f"fold_{self.fold}","checkpoint_final.pth") ):
-                cur_iter = curDir[-3:]
+                tmp_split = curDir.split("_")
+                cur_iter = tmp_split[0][-3:]
                 if int(cur_iter) > max_iter:
-                    max_iter = cur_iter
+                    max_iter = int(cur_iter)
                     
         return max_iter + 1
          
