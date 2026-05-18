@@ -378,27 +378,15 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
                 self.configuration_manager.get_num_output_classes(netIdx), 
                 False
             )
-            
-            if self.current_iter == 0:
-                # load in weights from previous training
-                print("loading weights from " + self.get_fold_weight_path(netIdx) + f" for network {netIdx}")
-                checkpoint = torch.load(self.get_fold_weight_path(netIdx), map_location=torch.device('cpu'), weights_only=False)
-                cur_network.load_state_dict(checkpoint["network_weights"])
-                # out network in list
-                networks.append(cur_network)
-                print(arch_init_kwargs)
+            networks.append(cur_network)
+            print(arch_init_kwargs)
         
-                return cascaded_networks(networks, deep_supervision=enable_deep_supervision)
-            else:
-                networks.append(cur_network)
-                print(arch_init_kwargs)
+        cascade = cascaded_networks(networks, deep_supervision=enable_deep_supervision)
+        # since we updated the cascade, we initialize weights here instead
+        chkpt = torch.load(self.get_previous_iteration_weight_path(), map_location=torch.device('cpu'), weights_only=False)
+        cascade.load_state_dict(chkpt["network_weights"])
         
-                cascade = cascaded_networks(networks, deep_supervision=enable_deep_supervision)
-                # since we updated the cascade, we initialize weights here instead
-                chkpt = torch.load(self.get_previous_iteration_weight_path(), map_location=torch.device('cpu'), weights_only=False)
-                cascade.load_state_dict(chkpt["network_weights"])
-                
-                return cascade
+        return cascade
                 
     
     
