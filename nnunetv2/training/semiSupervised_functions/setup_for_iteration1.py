@@ -43,7 +43,7 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
         shutil.copytree(nnUnet_results_dataset_path, dataset_res, 
                         ignore=shutil.ignore_patterns("iterations", "train", "validation", "*Plots", "*.xlsx", "tstInference", "*.txt", "*.png", "tmp_outputs"))
         # rename results folder so it matches semiSupervisedTrainer -- can customize to other trainers later
-        os.rename( os.path.join(dataset_res, "cascadednnUNetTrainer__nnUNetCascadePlans__cascade"),   os.path.join(dataset_res, "semiSupervisednnUNetTrainer__nnUNetCascadePlans__cascade"))
+        shutil.copytree( os.path.join(dataset_res, "cascadednnUNetTrainer__nnUNetCascadePlans__cascade"),   os.path.join(dataset_res, "semiSupervisednnUNetTrainer__nnUNetCascadePlans__cascade"))
         
         
     # here we also set up our temporary directory for storing predictions on unlabeled data after each fold
