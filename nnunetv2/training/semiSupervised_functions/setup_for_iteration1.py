@@ -4,7 +4,8 @@ import fire
 
 # this function sets up the files to start the first iteration of semi-supervised nnUnet training
 # basically we just move everything from our original training on just labeled data to dataset/iterations/mixed_dataset_000
-def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_path: str, nnUnet_results_dataset_path: str, fold: int):
+def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_path: str, 
+                     nnUnet_results_dataset_path: str, fold: int):
     # create folders in dataset
     if not os.path.isdir( os.path.join(nnUnet_raw_dataset_path, "iterations") ):
         os.mkdir( os.path.join(nnUnet_raw_dataset_path, "iterations") )
@@ -40,8 +41,11 @@ def setup_iteration1(nnUnet_raw_dataset_path: str, nnUnet_preprocessed_dataset_p
     if not os.path.isdir(dataset_res):
         print("copying results files")
         shutil.copytree(nnUnet_results_dataset_path, dataset_res, 
-                        ignore=shutil.ignore_patterns("iterations", "train", "validation", "*Plots", "*.xlsx", "tstInference", "*.txt", "*.png"))
-    
+                        ignore=shutil.ignore_patterns("iterations", "train", "validation", "*Plots", "*.xlsx", "tstInference", "*.txt", "*.png", "tmp_outputs"))
+        # rename results folder so it matches semiSupervisedTrainer -- can customize to other trainers later
+        os.rename( os.path.join(dataset_res, "cascadednnUNetTrainer__nnUNetCascadePlans__cascade"),   os.path.join(dataset_res, "semiSupervisednnUNetTrainer__nnUNetCascadePlans__cascade"))
+        
+        
     # here we also set up our temporary directory for storing predictions on unlabeled data after each fold
     if not os.path.isdir( os.path.join(nnUnet_results_dataset_path, "tmp_outputs") ):
         os.mkdir( os.path.join(nnUnet_results_dataset_path, "tmp_outputs") )
