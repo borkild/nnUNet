@@ -8,8 +8,8 @@ class oneHotFloatTargets(BasicTransform):
         self.hi = 1
         
     def apply(self, data_dict, **params):
-        bg_value = torch.ones(data_dict['segmentation'].shape) - torch.sum(data_dict['segmentation'], dim=1, keepdim=True)
-        data_dict['segmentation'] = torch.cat( (bg_value, data_dict['segmentation']), dim=1 )
+        bg_value = torch.ones(data_dict['segmentation'].shape) - torch.sum(data_dict['segmentation'], dim=0, keepdim=True)
+        data_dict['segmentation'] = torch.cat( (bg_value, data_dict['segmentation']), dim=0 )
         
         return data_dict
     
