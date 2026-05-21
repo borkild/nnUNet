@@ -574,7 +574,7 @@ class nnUNetSemiSupervisedDataLoader(DataLoader):
         selected_keys = self.get_indices()
         # preallocate memory for data, seg, and intermedite outputs -- we handle these seperately for now to allow for deep supervision on individual networks as well
         data_all = np.zeros(self.data_shape, dtype=np.float32)
-        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+        seg_all = np.zeros(self.seg_shape, dtype=np.float32)
 
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
