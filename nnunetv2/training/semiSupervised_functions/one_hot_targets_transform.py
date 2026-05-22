@@ -8,6 +8,7 @@ class oneHotFloatTargets(BasicTransform):
         self.hi = 1
         
     def apply(self, data_dict, **params):
+        print(f"seg dimension in one hot conversion: {data_dict["segmentation"].shape}")
         bg_value = torch.ones(data_dict['segmentation'].shape) - torch.sum(data_dict['segmentation'], dim=0, keepdim=True)
         data_dict['segmentation'] = torch.cat( (bg_value, data_dict['segmentation']), dim=0 )
         
