@@ -582,8 +582,6 @@ class nnUNetSemiSupervisedDataLoader(DataLoader):
             force_fg = self.get_do_oversample(j)
 
             data, seg, _, properties = self._data.load_case(i) # can get intermediate outputs from 3rd output here, but don't have use for them now
-            print(f"just after load_case: {seg.dtype}")
-            print(f"sample value: {seg[0, 0, 0]}")
 
             # If we are doing the cascade then the segmentation from the previous stage will already have been loaded by
             # self._data.load_case(i) (see nnUNetDataset.load_case)
@@ -608,17 +606,16 @@ class nnUNetSemiSupervisedDataLoader(DataLoader):
                 with threadpool_limits(limits=1, user_api=None):
                     data_all = torch.from_numpy(data_all).float()
                     seg_all = torch.from_numpy(seg_all).float()
-                    print(f"After converting to torch tensor: {seg_all.dtype}")
-                    print(f"sample value: {seg_all[0, 0, 0, 0]}")
                     images = []
                     segs = []
                     for b in range(self.batch_size):
+                        print("segmentation type before transforms:")
+                        print(seg_all[b].dtype)
                         tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
                         images.append(tmp['image'])
                         segs.append(tmp['segmentation'])
-                        print(f"segmentation after transform: {tmp['segmentation'].dtype}")
-                        print(f"sample value: {tmp['segmentation'][0, 0, 0, 0]}")
-                        
+                        print("segmentation type after transforms:")
+                        print(tmp['segmentation'].dtype)
                         
                         
                     data_all = torch.stack(images)
