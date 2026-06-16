@@ -609,13 +609,9 @@ class nnUNetSemiSupervisedDataLoader(DataLoader):
                     images = []
                     segs = []
                     for b in range(self.batch_size):
-                        print("segmentation type before transforms:")
-                        print(seg_all[b].dtype)
                         tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
                         images.append(tmp['image'])
                         segs.append(tmp['segmentation'])
-                        print("segmentation type after transforms:")
-                        print(tmp['segmentation'].dtype)
                         
                         
                     data_all = torch.stack(images)
