@@ -981,6 +981,12 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
 
         if deep_supervision_scales is not None:
             transforms.append(PullSegApartForCascadeDSTransform())
+            
+        # explicitly do one hot encoding of target here to keep compatible with loss
+        transforms.append(RandomTransform(
+            oneHotFloatTargets()
+        ))
+            
         return ComposeTransforms(transforms)
 
     # we hand deep supervision to each network as we build, so we alter this function to pass it to the last network in the cascade
