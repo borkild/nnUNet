@@ -1106,18 +1106,24 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
         target = batch['target']
-
+        
+        print("Transfering to GPU")
+        
         data = data.to(self.device, non_blocking=True)
         if isinstance(target, list):
             target = [i.to(self.device, non_blocking=True) for i in target]
         else:
             target = target.to(self.device, non_blocking=True)
+            
+        print("Transfer Complete")
 
         self.optimizer.zero_grad(set_to_none=True)
         # Autocast can be annoying
         # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
+        
+        print("Running input and computing loss")
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             # del data
@@ -1133,6 +1139,10 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
             l.backward()
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
+        
+        print("Finished running loss and backpropagation")
+            
+        print("Detaching loss, moving to CPU, and converting to numpy array") 
         return {'loss': l.detach().cpu().numpy()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
@@ -1509,19 +1519,38 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
         for epoch in range(self.current_epoch, self.num_epochs):
             self.on_epoch_start()
 
+            print("starting new epoch " + datetime.now().strftime("%H:%M:%S"))
+            
             self.on_train_epoch_start()
             train_outputs = []
             for batch_id in range(self.num_iterations_per_epoch):
-                train_outputs.append(self.train_step(next(self.dataloader_train)))
+                print(f"batch step {batch_id} of {len(range(self.num_iterations_per_epoch))}")
+                #train_outputs.append(self.train_step(next(self.dataloader_train)))
+                print("Loading in data " + datetime.now().strftime("%H:%M:%S"))
+                tmp_data = next(self.dataloader_train)
+                print("Finished loading in data " + datetime.now().strftime("%H:%M:%S"))
+                
+                print("running train step and appending outputs " + datetime.now().strftime("%H:%M:%S"))
+                train_outputs.append(self.train_step( tmp_data ))
+                
+            print("ending train step "  + datetime.now().strftime("%H:%M:%S"))
             self.on_train_epoch_end(train_outputs)
+            
+            print("finished train step "  + datetime.now().strftime("%H:%M:%S"))
+            
+            print("starting validation "  + datetime.now().strftime("%H:%M:%S"))
 
             with torch.no_grad():
                 self.on_validation_epoch_start()
                 val_outputs = []
                 for batch_id in range(self.num_val_iterations_per_epoch):
+                    print("validation step " + datetime.now().strftime("%H:%M:%S"))
                     val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                    
+                print("ending validation " + datetime.now().strftime("%H:%M:%S"))
                 self.on_validation_epoch_end(val_outputs)
 
+            print("ending epoch " + datetime.now().strftime("%H:%M:%S"))
             self.on_epoch_end()
 
         self.on_train_end()
