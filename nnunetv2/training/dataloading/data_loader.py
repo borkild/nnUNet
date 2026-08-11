@@ -10,7 +10,7 @@ from threadpoolctl import threadpool_limits
 
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetBaseDataset
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetMultitaskCascade
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetMultitaskCascade, nnUNetDatasetSemiSupervisedCascade
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
@@ -427,7 +427,7 @@ class nnUNetMultitaskCascadeDataLoader(DataLoader):
 # This allows us to use all values between 0 and 1 for pseudo labeling
 class nnUNetSemiSupervisedDataLoader(DataLoader):
     def __init__(self,
-                 data: nnUNetDatasetMultitaskCascade,
+                 data: nnUNetDatasetSemiSupervisedCascade,
                  batch_size: int,
                  patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
                  final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],

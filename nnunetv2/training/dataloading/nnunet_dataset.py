@@ -336,6 +336,37 @@ class nnUNetDatasetMultitaskCascade(nnUNetDatasetBlosc2):
 
 
 
+class nnUNetDatasetSemiSupervisedCascade(nnUNetDatasetBlosc2):
+    def __init__(self, folder: str, identifiers: List[str] = None,
+                 folder_with_segs_from_previous_stage: str = None,
+                 num_networks: int = 2):
+        super().__init__(folder, identifiers, folder_with_segs_from_previous_stage)
+        self.num_networks = num_networks # assign number of networks so we know how many intermediate outputs to look for
+        
+    # load case is the only function we need to overwrite
+    def load_case(self, identifier):
+        dparams = {
+            'nthreads': 1
+        }
+        data_b2nd_file = join(self.source_folder, identifier + '.b2nd')
+
+        # mmap does not work with Windows -> https://github.com/MIC-DKFZ/nnUNet/issues/2723
+        mmap_kwargs = {} if os.name == "nt" else {'mmap_mode': 'r'}
+        data = blosc2.open(urlpath=data_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
+
+        seg_b2nd_file = join(self.source_folder, identifier + '_seg.b2nd')
+        seg = blosc2.open(urlpath=seg_b2nd_file, mode='r', dparams=dparams, **mmap_kwargs)
+        
+        # iterate through intermediate outputs
+        intermediate_outputs = None
+        
+        # stack intermediate outputs with the segmentation -- makes dealing with transforms easier
+        seg = np.concatenate((intermediate_outputs, seg), axis=0)
+        
+        properties = load_pickle(join(self.source_folder, identifier + '.pkl'))
+        return data, seg, intermediate_outputs, properties
+
+
 file_ending_dataset_mapping = {
     'npz': nnUNetDatasetNumpy,
     'b2nd': nnUNetDatasetBlosc2
