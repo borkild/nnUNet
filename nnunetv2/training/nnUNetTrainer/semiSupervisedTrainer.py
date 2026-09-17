@@ -1553,6 +1553,8 @@ class semiSupervisednnUNetTrainer(nnUNetTrainer):
             print("ending epoch " + datetime.now().strftime("%H:%M:%S"))
             self.on_epoch_end()
 
+        print("\n")
+        
         self.on_train_end()
 
 
