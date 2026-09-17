@@ -1,0 +1,104 @@
+import os
+import numpy as np
+import nrrd
+import shutil
+import fire
+from batchgenerators.utilities.file_and_folder_operations import join, load_json, isfile, save_json, maybe_mkdir_p
+import matplotlib.pyplot as plt
+
+def generate_mixed_label_dataset(current_iteration: int, unlabeled_txt_file_list: str, overall_dataset_path: str, 
+                                 cur_fold: int, output_file_format: str = ".nrrd"):
+    new_dataset_loc = os.path.join(overall_dataset_path, "iterations", "fold_" + str(cur_fold), "Dataset" + str(current_iteration).zfill(3) + "_mixed" )
+    nd_image_path = os.path.join(new_dataset_loc, "imagesTr")
+    nd_label_path = os.path.join(new_dataset_loc, "labelsTr")
+    unlabeled_folder_path = os.path.join(overall_dataset_path, "unlabeledimagesTr")
+    # create folder to store new mixed label dataset 
+    if not os.path.isdir( new_dataset_loc ):
+        os.mkdir( new_dataset_loc )
+        os.mkdir( nd_image_path )
+        os.mkdir( nd_label_path )
+    else:
+        raise FileExistsError("Folder for next iteration already exists -- something is up -- double check your output directories")
+    
+    # move labeled training samples from dataset to the next iteration's dataset folder
+    shutil.copytree( os.path.join(overall_dataset_path, "imagesTr"), nd_image_path, dirs_exist_ok=True )
+    shutil.copytree( os.path.join(overall_dataset_path, "labelsTr"), nd_label_path, dirs_exist_ok=True )
+    
+    # load text file of scans in as list
+    unlabeled_scans = load_txt_file(unlabeled_txt_file_list)
+    
+    # save scans out in required format (stuck with .nrrd for now)
+    for curScan in unlabeled_scans:
+        id = curScan.split("/")
+        id = id[-1].split(".")
+        outPath = os.path.join(nd_label_path, id[0]+output_file_format)
+        # copy image
+        shutil.copy( os.path.join(unlabeled_folder_path, id[0] + "_0000" + output_file_format), nd_image_path )
+        # get rid of new line if it is in string
+        npz_cur_path = curScan.replace("\n", "")
+        # copy label
+        save_npz_as_nrrd(npz_cur_path, outPath)
+        
+    # create and save dataset.json
+    prev_dataset_loc = os.path.join(overall_dataset_path, "iterations", "fold_" + str(cur_fold), "Dataset" + str(current_iteration-1).zfill(3) + "_mixed" )
+    prev_dataset_json = load_json( join(prev_dataset_loc, "dataset.json") )
+    # overwrite number of scans, and write to new dataset location
+    prev_dataset_json["numTraining"] = len( os.listdir(nd_image_path) )
+    json_path = join(new_dataset_loc, "dataset.json")
+    save_json(prev_dataset_json, json_path)
+    
+    
+
+
+# function to load in scans from txt file
+def load_txt_file(txt_file_path: str):
+    with open(txt_file_path, 'r') as file:
+        txt_file_content = file.readlines()
+        
+    return txt_file_content
+
+def save_npz_as_nrrd(npz_path: str, label_path_to_write: str):
+    # load in npz with prediction data
+    prediction_data = np.load(npz_path)
+    prediction = prediction_data["probabilities"]
+    # for now we assume the background is the first dimension
+    noBG_pred = np.delete(prediction, 0, axis=0)
+    # squeeze to get rid of dimensions of 1
+    noBG_pred = np.squeeze(noBG_pred)
+    # swap z to last dimension
+    noBG_pred = np.transpose(noBG_pred, axes=(2,1,0))
+    # load in nrrd as well, this way we can get spacing and origin for the nrrd file we write
+    basic_path = os.path.split(npz_path)
+    scan_id = basic_path[-1].split(".")
+    _, nrrdHeader = nrrd.read( os.path.join(basic_path[0], scan_id[0] + ".nrrd" ) )
+    outputHeader = {}
+    # check for origin and spacing fields
+    if "space directions" in nrrdHeader:
+        outputHeader["space directions"] = nrrdHeader["space directions"]
+    elif "spacings" in nrrdHeader:
+        outputHeader["spacings"] = nrrdHeader["spacings"]
+    
+    if "space origin" in nrrdHeader:
+        outputHeader["space origin"] = nrrdHeader["space origin"]
+        
+    if "space" in nrrdHeader:
+        outputHeader["space"] = nrrdHeader["space"]
+    
+    print("Writing: " + label_path_to_write)
+    nrrd.write(label_path_to_write, noBG_pred, outputHeader)
+    
+    
+    
+    
+if __name__ == "__main__":
+    '''
+    cur_iter = 2
+    unlabeled_file_txt = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\quick_testing\\semi_supervised_test\\nnUNet_results\\Dataset031_cascadeFineTuning\\tmp_outputs\\fold_0\\high_conf.txt"
+    dataset_path = "X:\\CEG\\ActiveProjects\\DL_Scar_Segment\\data\\quick_testing\\semi_supervised_test\\nnUNet_raw\\Dataset031_cascadeFineTuning"
+    curFold = 0
+    generate_mixed_label_dataset(cur_iter, unlabeled_file_txt, dataset_path, curFold)
+    '''
+    
+    fire.Fire(generate_mixed_label_dataset)
+    
+    

@@ -10,7 +10,7 @@ from threadpoolctl import threadpool_limits
 
 from nnunetv2.paths import nnUNet_preprocessed
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetBaseDataset
-from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetMultitaskCascade
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetMultitaskCascade, nnUNetDatasetSemiSupervisedCascade
 from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetBlosc2
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
@@ -427,7 +427,7 @@ class nnUNetMultitaskCascadeDataLoader(DataLoader):
 # This allows us to use all values between 0 and 1 for pseudo labeling
 class nnUNetSemiSupervisedDataLoader(DataLoader):
     def __init__(self,
-                 data: nnUNetDatasetMultitaskCascade,
+                 data: nnUNetDatasetSemiSupervisedCascade,
                  batch_size: int,
                  patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
                  final_patch_size: Union[List[int], Tuple[int, ...], np.ndarray],
@@ -574,7 +574,7 @@ class nnUNetSemiSupervisedDataLoader(DataLoader):
         selected_keys = self.get_indices()
         # preallocate memory for data, seg, and intermedite outputs -- we handle these seperately for now to allow for deep supervision on individual networks as well
         data_all = np.zeros(self.data_shape, dtype=np.float32)
-        seg_all = np.zeros(self.seg_shape, dtype=np.int16)
+        seg_all = np.zeros(self.seg_shape, dtype=np.float32)
 
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
@@ -612,6 +612,7 @@ class nnUNetSemiSupervisedDataLoader(DataLoader):
                         tmp = self.transforms(**{'image': data_all[b], 'segmentation': seg_all[b]})
                         images.append(tmp['image'])
                         segs.append(tmp['segmentation'])
+                        
                         
                     data_all = torch.stack(images)
                     if isinstance(segs[0], list):

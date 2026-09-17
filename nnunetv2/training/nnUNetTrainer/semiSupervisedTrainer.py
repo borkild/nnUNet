@@ -53,7 +53,7 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
-from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.compound_losses import DC_and_CE_loss_float_probs, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
@@ -64,31 +64,25 @@ from nnunetv2.utilities.file_path_utilities import check_workers_alive_and_busy
 from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
-from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
-# our transforms to handle masks as input to the network
-from nnunetv2.training.data_augmentation.mask_input_to_seg import MoveInputMaskToSegParam
-from nnunetv2.training.data_augmentation.mask_input_to_data import MoveInputMaskBackToInput
+from nnunetv2.utilities.plans_handling.plans_handler import CascadePlansManager
+
+# original trainer, which our trainer will inherit from
+from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+
+# we just import this ourselves, as we expect only to use a cascade with this trainer
+from dynamic_network_architectures.architectures.cascaded_networks import cascaded_networks
+
+from nnunetv2.training.data_augmentation.deep_supervision_pulling_cascade import PullSegApartForCascadeDSTransform
+
+from nnunetv2.training.dataloading.data_loader import nnUNetSemiSupervisedDataLoader
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDatasetMultitaskCascade
+from nnunetv2.training.semiSupervised_functions.one_hot_targets_transform import oneHotFloatTargets
 
 
-class nnUNetTrainer(object):
+class semiSupervisednnUNetTrainer(nnUNetTrainer):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
-        # From https://grugbrain.dev/. Worth a read ya big brains ;-)
-
-        # apex predator of grug is complexity
-        # complexity bad
-        # say again:
-        # complexity very bad
-        # you say now:
-        # complexity very, very bad
-        # given choice between complexity or one on one against t-rex, grug take t-rex: at least grug see t-rex
-        # complexity is spirit demon that enter codebase through well-meaning but ultimately very clubbable non grug-brain developers and project managers who not fear complexity spirit demon or even know about sometime
-        # one day code base understandable and grug can get work done, everything good!
-        # next day impossible: complexity demon spirit has entered code and very dangerous situation!
-
-        # OK OK I am guilty. But I tried.
-        # https://www.osnews.com/images/comics/wtfm.jpg
-        # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
+        # 
 
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
@@ -113,22 +107,15 @@ class nnUNetTrainer(object):
         self.my_init_kwargs = {}
         for k in inspect.signature(self.__init__).parameters.keys():
             self.my_init_kwargs[k] = locals()[k]
-
+        
         ###  Saving all the init args into class variables for later access
-        self.plans_manager = PlansManager(plans)
+        self.plans_manager = CascadePlansManager(plans) # cascaded plan manager also has a list of plans for each network in the cascade
         self.configuration_manager = self.plans_manager.get_configuration(configuration)
+        # get individual network configurations
+        self.network_configuration_manager = self.configuration_manager.get_individual_configurations
         self.configuration_name = configuration
         self.dataset_json = dataset_json
         self.fold = fold
-        
-        # figure out if we have any input channels that function as masks -- for now, we assume all channels with "noNormalization"
-        # in plan -> config -> normalization_schemes are segmentation masks (likely need a more robust way to check this at some point)
-        # changing the experiment planner to add a check here would probably make more sense (again, for the future)
-        norm_schemes = self.configuration_manager.normalization_schemes
-        self.mask_input_idxs = []
-        for curIdx in range(len(norm_schemes)):
-            if norm_schemes[curIdx] == "NoNormalization":
-                self.mask_input_idxs.append(curIdx)
 
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
@@ -141,6 +128,7 @@ class nnUNetTrainer(object):
 
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
                                                 self.configuration_manager.data_identifier)
+        
         self.dataset_class = None  # -> initialize
         # unlike the previous nnunet folder_with_segs_from_previous_stage is now part of the plans. For now it has to
         # be a different configuration in the same plans
@@ -153,30 +141,31 @@ class nnUNetTrainer(object):
                  self.configuration_manager.previous_stage_name, 'predicted_next_stage', self.configuration_name) \
                 if self.is_cascaded else None
 
-        ### Some hyperparameters for you to fiddle with
-        self.initial_lr = 1e-2 # originally 1e-2
+        ### Some hyperparameters for you to fiddle with -- for now have deep supervision off and reduced initial LR
+        self.initial_lr = 1e-3 # may want to increase this? seems like some folds had more potential for learning
         self.weight_decay = 3e-4 # originally 3e-5
         self.oversample_foreground_percent = 0.33
-        self.probabilistic_oversampling = False # try changing this to true for scar segmentation?
-        # could try reducing this, as the network currently sees 250 mini-batches per epoch
-        # reducing this may help with overfitting, as network currently sees dataset 5-10x over per epoch
-        self.num_iterations_per_epoch = 50 # originally 250
+        self.probabilistic_oversampling = False
+        self.num_iterations_per_epoch = 75 # originally 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 1000 # originally 1000
+        self.num_epochs = 400 # may want to play around with this and the number of iterations per epoch
         self.current_epoch = 0
-        self.enable_deep_supervision = True
+        self.enable_deep_supervision = False
         
-        # additional epoch setup -- this enforces some early stopping for us that doesn't effect the learning rate
-        # as the learning rate scheduler is tied to self.num_epochs -- set to None to ignore
-        self.early_stop_epoch = 800
+        self.loss_num_epochs = self.num_epochs
         
-        # parameter to determine if we want to have gaussian noise in our transforms -- We don't want it when training for scar segmentation
-        self.gaussian_noise_transform = False
+        # semi-supervised hyperparameters
+        self.confidence_thresh = 0.90
+        self.current_iter = self.get_current_iteration()
+        
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
         # labels can either be a list of int (regular training) or a list of tuples of int (region-based training)
         # needed for predictions. We do sigmoid in case of (overlapping) regions
+        
+        # parameter to determine if we want to have gaussian noise in our transforms -- We don't want it when training for scar segmentation
+        self.gaussian_noise_transform = False
 
         self.num_input_channels = None  # -> self.initialize()
         self.network = None  # -> self.build_network_architecture()
@@ -200,7 +189,6 @@ class nnUNetTrainer(object):
         ### initializing stuff for remembering things and such
         self._best_ema = None
         self._min_val_loss = None
-        self._min_diff_loss = None
 
         ### inference things
         self.inference_allowed_mirroring_axes = None  # this variable is set in
@@ -227,16 +215,18 @@ class nnUNetTrainer(object):
             self._set_batch_size_and_oversample()
 
             self.num_input_channels = determine_num_input_channels(self.plans_manager, self.configuration_manager,
-                                                                   self.dataset_json)
+                                                                   self.dataset_json)   
 
+            # build cascaded architecture
             self.network = self.build_network_architecture(
                 self.configuration_manager.network_arch_class_name,
                 self.configuration_manager.network_arch_init_kwargs,
                 self.configuration_manager.network_arch_init_kwargs_req_import,
-                self.num_input_channels,
+                self.configuration_manager.get_num_input_channels(0),
                 self.label_manager.num_segmentation_heads,
                 self.enable_deep_supervision
-            ).to(self.device)
+                ).to(self.device)
+            
             # compile network for free speedup
             if self._do_i_compile():
                 self.print_to_log_file('Using torch.compile...')
@@ -250,7 +240,10 @@ class nnUNetTrainer(object):
 
             self.loss = self._build_loss()
 
-            self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
+            if self.enable_deep_supervision:
+                self.dataset_class = nnUNetDatasetMultitaskCascade
+            else:
+                self.dataset_class = infer_dataset_class(self.preprocessed_dataset_folder)
 
             # torch 2.2.2 crashes upon compiling CE loss
             # if self._do_i_compile():
@@ -323,8 +316,84 @@ class nnUNetTrainer(object):
             dct['cudnn_version'] = cudnn_version
             save_json(dct, join(self.output_folder, "debug.json"))
 
+    # this function gets the full path to our saved weights
+    def get_fold_weight_path(self, netIdx):
+        # get list of paths to network weights folders
+        network_weight_path = self.configuration_manager.get_network_weight_paths
+        # get list of desired checkpoint kinds
+        chckpts = self.configuration_manager.get_network_save_type
+        # build path based on fold
+        fullPath = os.path.join(network_weight_path[netIdx], "fold_"+str(self.fold), "checkpoint_"+chckpts[netIdx]+".pth")
+        return fullPath
+    
+    # get our current iteration based on previous iterations in results folder
+    # note that the checkpoint_final.pth file must be present to consider that iteration complete
+    def get_current_iteration(self):
+        iteration_dirlist = os.listdir( nnUNet_results )
+        max_iter = 0
+        for curDir in iteration_dirlist:
+            if "_mixed" in curDir and os.path.isfile( join(nnUNet_results, curDir, 
+                                                           self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + self.configuration_name, 
+                                                           f"fold_{self.fold}","checkpoint_final.pth") ):
+                tmp_split = curDir.split("_")
+                cur_iter = tmp_split[0][-3:]
+                if int(cur_iter) > max_iter:
+                    max_iter = int(cur_iter)
+                    
+        return max_iter + 1
+         
+    def get_previous_iteration_weight_path(self):
+        if self.current_iter == 2:
+            return join(nnUNet_results, "Dataset"+str(self.current_iter - 1).zfill(3) + "_mixed", 
+                        self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + self.configuration_name, 
+                                                           f"fold_{self.fold}", "checkpoint_before_train.pth")
+        else:
+            return join(nnUNet_results, "Dataset"+str(self.current_iter - 1).zfill(3) + "_mixed", 
+                        self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + self.configuration_name, 
+                                                           f"fold_{self.fold}", "checkpoint_min_val.pth")
+    
+    # this function handles building our cascade
+    def build_network_architecture(self,
+                                   architecture_class_name: str,
+                                   arch_init_kwargs: dict,
+                                   arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
+                                   num_input_channels: int,
+                                   num_output_channels: int,
+                                   enable_deep_supervision: bool = False):
+        # check to make sure architecture class name matches cascaded architecture, anything else means the wrong options have been selected
+        if architecture_class_name != "dynamic_network_architectures.architectures.cascaded_networks.cascaded_networks" or not "cascaded_networks" in architecture_class_name:
+            raise ValueError("Using cascaded trainer, we expect a cascaded network architecture")  
+        
+        # grab individual configs from configs manager
+        network_config_list = self.configuration_manager.get_network_configs
+
+        networks = []
+        # iterate through configs, building list of networks
+        for netIdx in range(len(network_config_list)):
+            cur_network = self.build_individual_network_architecture(
+                self.configuration_manager.individual_network_arch_class_name(netIdx),
+                self.configuration_manager.individual_network_arch_init_kwargs(netIdx),
+                self.configuration_manager.individual_network_arch_init_kwargs_req_import(netIdx),
+                self.configuration_manager.get_num_input_channels(netIdx),
+                self.configuration_manager.get_num_output_classes(netIdx), 
+                False
+            )
+            networks.append(cur_network)
+            print(arch_init_kwargs)
+        
+        cascade = cascaded_networks(networks, deep_supervision=enable_deep_supervision)
+        # since we updated the cascade, we initialize weights here instead
+        chkpt = torch.load(self.get_previous_iteration_weight_path(), map_location=torch.device('cpu'), weights_only=False)
+        cascade.load_state_dict(chkpt["network_weights"])
+        
+        return cascade
+                
+    
+    
+    # this is the same as build_network_architecture in the basic nnUnetTrainer
+    # here it builds the individual networks in the cascade
     @staticmethod
-    def build_network_architecture(architecture_class_name: str,
+    def build_individual_network_architecture(architecture_class_name: str,
                                    arch_init_kwargs: dict,
                                    arch_init_kwargs_req_import: Union[List[str], Tuple[str, ...]],
                                    num_input_channels: int,
@@ -358,12 +427,18 @@ class nnUNetTrainer(object):
             allow_init=True,
             deep_supervision=enable_deep_supervision)
 
-    def _get_deep_supervision_scales(self):
+    def _get_deep_supervision_weights(self):
+        # we use a w_i = i/sum(j_0 to j_N) for a cascade of N networks
         if self.enable_deep_supervision:
-            deep_supervision_scales = list(list(i) for i in 1 / np.cumprod(np.vstack(
-                self.configuration_manager.pool_op_kernel_sizes), axis=0))[:-1]
+            denomin = sum( list(range(len(self.configuration_manager.get_network_configs))) )
+            deep_supervision_scales = []
+            for cur_network in range(len(self.configuration_manager.get_network_configs)):
+                deep_supervision_scales.append((cur_network+1)/denomin) # add 1, as python indexing starts at 0
+            deep_supervision_scales = np.array(deep_supervision_scales)
         else:
             deep_supervision_scales = None  # for train and val_transforms
+            
+        # hard coding this to test
         return deep_supervision_scales
 
     def _set_batch_size_and_oversample(self):
@@ -419,7 +494,7 @@ class nnUNetTrainer(object):
                                    use_ignore_label=self.label_manager.ignore_label is not None,
                                    dice_class=MemoryEfficientSoftDiceLoss)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+            loss = DC_and_CE_loss_float_probs({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
                                   ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
 
@@ -429,9 +504,9 @@ class nnUNetTrainer(object):
         # we give each output a weight which decreases exponentially (division by 2) as the resolution decreases
         # this gives higher resolution outputs more weight in the loss
 
+        # here we've made an adjustment. We want our final label to have the highest weight in the loss
         if self.enable_deep_supervision:
-            deep_supervision_scales = self._get_deep_supervision_scales()
-            weights = np.array([1 / (2 ** i) for i in range(len(deep_supervision_scales))])
+            weights = self._get_deep_supervision_weights()
             if self.is_ddp and not self._do_i_compile():
                 # very strange and stupid interaction. DDP crashes and complains about unused parameters due to
                 # weights[-1] = 0. Interestingly this crash doesn't happen with torch.compile enabled. Strange stuff.
@@ -440,8 +515,6 @@ class nnUNetTrainer(object):
             else:
                 weights[-1] = 0
 
-            # we don't use the lowest 2 outputs. Normalize weights so that they sum to 1
-            weights = weights / weights.sum()
             # now wrap the loss
             loss = DeepSupervisionWrapper(loss, weights)
 
@@ -530,32 +603,31 @@ class nnUNetTrainer(object):
     def configure_optimizers(self):
         optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                     momentum=0.99, nesterov=True)
-        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
+        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.loss_num_epochs)
         return optimizer, lr_scheduler
 
-    # export the network as a .onnx file to visualize in netron -- we don't expect you to ever actually run the model from the onnx file
     def plot_network_architecture(self):
         if self._do_i_compile():
             self.print_to_log_file("Unable to plot network architecture: nnUNet_compile is enabled!")
             return
+
         if self.local_rank == 0:
-            #try:
-            # hidden layer doesn't work, so instead we save out the network architecture in onnx format
-            # then we can load it into netron to view the architecture and tensor sizes at each step
-            dummy_input = torch.rand((1, self.num_input_channels,
-                                            *self.configuration_manager.patch_size),
-                                            device=self.device, requires_grad=True)
-            
-            print("saving model to " + join(self.output_folder, "network_architecture.onnx"))
-            torch.onnx.export(self.network,
-                                dummy_input,
-                                join(self.output_folder, "network_architecture.onnx"),
-                                opset_version=20
-                                )
-            
-            print("Successfully saved model!")
+            try:
+                # hidden layer doesn't work, so instead we save out the network architecture in onnx format
+                # then we can load it into netron to view the architecture and tensor sizes at each step
+                dummy_input = torch.rand((1, self.num_input_channels,
+                                               *self.configuration_manager.patch_size),
+                                              device=self.device, requires_grad=True)
+                print("saving model to " + join(self.output_folder, "network_architecture.onnx"))
+                torch.onnx.export(self.network,
+                                    dummy_input,
+                                    join(self.output_folder, "network_architecture.onnx"),
+                                    opset_version=20
+                                    )
                 
-            '''
+                print("Successfully saved model!")
+            
+            
             except Exception as e:
                 self.print_to_log_file("Unable to save network architecture:")
                 self.print_to_log_file(e)
@@ -565,8 +637,6 @@ class nnUNetTrainer(object):
                 # self.print_to_log_file("\n")
             finally:
                 empty_cache(self.device)
-                
-            '''
 
     def do_split(self):
         """
@@ -648,9 +718,8 @@ class nnUNetTrainer(object):
         # we need to use dummy 2D augmentation (in case of 3D training) and what our initial patch size should be
         patch_size = self.configuration_manager.patch_size
 
-        # needed for deep supervision: how much do we need to downscale the segmentation targets for the different
-        # outputs?
-        deep_supervision_scales = self._get_deep_supervision_scales()
+        # deep supervision weights here will work the same way for our purpose
+        deep_supervision_scales = self._get_deep_supervision_weights()
 
         (
             rotation_for_DA,
@@ -666,8 +735,7 @@ class nnUNetTrainer(object):
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label,
-            do_gaussian_noise=self.gaussian_noise_transform,
-            input_mask_channels=self.mask_input_idxs)
+            do_gaussian_noise=self.gaussian_noise_transform)
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
@@ -679,21 +747,21 @@ class nnUNetTrainer(object):
 
         dataset_tr, dataset_val = self.get_tr_and_val_datasets()
 
-        dl_tr = nnUNetDataLoader(dataset_tr, self.batch_size,
-                                 initial_patch_size,
-                                 self.configuration_manager.patch_size,
-                                 self.label_manager,
-                                 oversample_foreground_percent=self.oversample_foreground_percent,
-                                 sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
-                                 probabilistic_oversampling=self.probabilistic_oversampling)
-        dl_val = nnUNetDataLoader(dataset_val, self.batch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.configuration_manager.patch_size,
-                                  self.label_manager,
-                                  oversample_foreground_percent=self.oversample_foreground_percent,
-                                  sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
-                                  probabilistic_oversampling=self.probabilistic_oversampling)
-
+        dl_tr = nnUNetSemiSupervisedDataLoader(dataset_tr, self.batch_size,
+                                    initial_patch_size,
+                                    self.configuration_manager.patch_size,
+                                    self.label_manager,
+                                    oversample_foreground_percent=self.oversample_foreground_percent,
+                                    sampling_probabilities=None, pad_sides=None, transforms=tr_transforms,
+                                    probabilistic_oversampling=self.probabilistic_oversampling)
+        dl_val = nnUNetSemiSupervisedDataLoader(dataset_val, self.batch_size,
+                                self.configuration_manager.patch_size,
+                                self.configuration_manager.patch_size,
+                                self.label_manager,
+                                oversample_foreground_percent=self.oversample_foreground_percent,
+                                sampling_probabilities=None, pad_sides=None, transforms=val_transforms,
+                                probabilistic_oversampling=self.probabilistic_oversampling)
+        
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
@@ -725,17 +793,9 @@ class nnUNetTrainer(object):
             foreground_labels: Union[Tuple[int, ...], List[int]] = None,
             regions: List[Union[List[int], Tuple[int, ...], int]] = None,
             ignore_label: int = None,
-            do_gaussian_noise: bool = True,
-            input_mask_channels: list[int] = []
+            do_gaussian_noise: bool = False
     ) -> BasicTransform:
-        
         transforms = []
-        
-        # add transform to handle input segmentation masks, so data augmentations are not applied to them
-        if len(input_mask_channels) > 0:
-            transforms.append(
-                MoveInputMaskToSegParam(input_mask_channels)
-            )
         
         if do_dummy_2d_data_aug:
             ignore_axes = (0,)
@@ -755,9 +815,8 @@ class nnUNetTrainer(object):
 
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
-        
-        
-        # made gaussian noise optional, as we don't want this when we train for scar segmentation    
+
+        # only do gaussian noise if we explicitly tell it to
         if do_gaussian_noise:
             transforms.append(RandomTransform(
                 GaussianNoiseTransform(
@@ -791,6 +850,8 @@ class nnUNetTrainer(object):
                 p_per_channel=1
             ), apply_probability=0.15
         ))
+        
+        # may want to consider removing this one
         transforms.append(RandomTransform(
             SimulateLowResolutionTransform(
                 scale=(0.5, 1),
@@ -801,6 +862,8 @@ class nnUNetTrainer(object):
                 p_per_channel=0.5
             ), apply_probability=0.25
         ))
+        
+        
         transforms.append(RandomTransform(
             GammaTransform(
                 gamma=BGContrast((0.7, 1.5)),
@@ -824,11 +887,6 @@ class nnUNetTrainer(object):
                 MirrorTransform(
                     allowed_axes=mirror_axes
                 )
-            )
-            
-        if len(input_mask_channels) > 0:
-            transforms.append(
-                MoveInputMaskBackToInput(input_mask_channels)
             )
 
         if use_mask_for_norm is not None and any(use_mask_for_norm):
@@ -880,10 +938,13 @@ class nnUNetTrainer(object):
             )
 
         if deep_supervision_scales is not None:
-            transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
+            transforms.append(PullSegApartForCascadeDSTransform())
+
+        # explicitly do one hot encoding of target here -- this is for the unlabeled scans
+        transforms.append(RandomTransform(
+            oneHotFloatTargets()
+        ))
         
-        print("transform list")
-        print(ComposeTransforms(transforms))
         
         return ComposeTransforms(transforms)
 
@@ -919,9 +980,16 @@ class nnUNetTrainer(object):
             )
 
         if deep_supervision_scales is not None:
-            transforms.append(DownsampleSegForDSTransform(ds_scales=deep_supervision_scales))
+            transforms.append(PullSegApartForCascadeDSTransform())
+            
+        # explicitly do one hot encoding of target here to keep compatible with loss
+        transforms.append(RandomTransform(
+            oneHotFloatTargets()
+        ))
+            
         return ComposeTransforms(transforms)
 
+    # we hand deep supervision to each network as we build, so we alter this function to pass it to the last network in the cascade
     def set_deep_supervision_enabled(self, enabled: bool):
         """
         This function is specific for the default architecture in nnU-Net. If you change the architecture, there are
@@ -934,12 +1002,32 @@ class nnUNetTrainer(object):
         if isinstance(mod, OptimizedModule):
             mod = mod._orig_mod
 
-        mod.decoder.deep_supervision = enabled
+        mod.deep_supervision = enabled
+        
+    
+    # will need to set all network deep superivision to off if we implement super deep supervision
+    def set_network_deep_supervision_enabled(self, enabled: bool):
+        """
+        This function is specific for the default architecture in nnU-Net. If you change the architecture, there are
+        chances you need to change this as well!
+        """
+        if self.is_ddp:
+            mod = self.network.module
+        else:
+            mod = self.network
+        if isinstance(mod, OptimizedModule):
+            mod = mod._orig_mod
+
+        mod.networks[-1].decoder.deep_supervision = enabled   
+    
 
     def on_train_start(self):
         if not self.was_initialized:
             self.initialize()
 
+        # save a copy of the networks before fine-tuning is performed -- use as reference to verify the fine tuning actually increased performance
+        self.save_checkpoint(join(self.output_folder, 'checkpoint_before_train.pth'))
+        
         # dataloaders must be instantiated here (instead of __init__) because they need access to the training data
         # which may not be present  when doing inference
         self.dataloader_train, self.dataloader_val = self.get_dataloaders()
@@ -1018,18 +1106,24 @@ class nnUNetTrainer(object):
     def train_step(self, batch: dict) -> dict:
         data = batch['data']
         target = batch['target']
-
+        
+        print("Transfering to GPU")
+        
         data = data.to(self.device, non_blocking=True)
         if isinstance(target, list):
             target = [i.to(self.device, non_blocking=True) for i in target]
         else:
             target = target.to(self.device, non_blocking=True)
+            
+        print("Transfer Complete")
 
         self.optimizer.zero_grad(set_to_none=True)
         # Autocast can be annoying
         # If the device_type is 'cpu' then it's slow as heck and needs to be disabled.
         # If the device_type is 'mps' then it will complain that mps is not implemented, even if enabled=False is set. Whyyyyyyy. (this is why we don't make use of enabled=False)
         # So autocast will only be active if we have a cuda device.
+        
+        print("Running input and computing loss")
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             # del data
@@ -1045,6 +1139,10 @@ class nnUNetTrainer(object):
             l.backward()
             torch.nn.utils.clip_grad_norm_(self.network.parameters(), 12)
             self.optimizer.step()
+        
+        print("Finished running loss and backpropagation")
+            
+        print("Detaching loss, moving to CPU, and converting to numpy array") 
         return {'loss': l.detach().cpu().numpy()}
 
     def on_train_epoch_end(self, train_outputs: List[dict]):
@@ -1113,7 +1211,8 @@ class nnUNetTrainer(object):
         else:
             mask = None
 
-        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target, axes=axes, mask=mask)
+        # since all the validation set should be labeled, we can safely turn it into an int for this function
+        tp, fp, fn, _ = get_tp_fp_fn_tn(predicted_segmentation_onehot, target.long(), axes=axes, mask=mask)
 
         tp_hard = tp.detach().cpu().numpy()
         fp_hard = fp.detach().cpu().numpy()
@@ -1186,11 +1285,6 @@ class nnUNetTrainer(object):
             self.print_to_log_file(f"Yayy! New best EMA pseudo Dice: {np.round(self._best_ema, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_best.pth'))
             
-        # some custom checkpointing here
-        # save out at epoch 50 (working on overfitting troubleshooting)
-        if current_epoch == 50:
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_50.pth'))
-            
         if current_epoch%100 == 0:
             self.save_checkpoint(join(self.output_folder, 'checkpoint_' + str(current_epoch) + '.pth'))
         
@@ -1199,12 +1293,6 @@ class nnUNetTrainer(object):
             self._min_val_loss = self.logger.my_fantastic_logging['val_losses'][-1]
             self.print_to_log_file(f"Yayy! New best low val loss: {np.round(self._min_val_loss, decimals=4)}")
             self.save_checkpoint(join(self.output_folder, 'checkpoint_min_val.pth'))
-        
-        if self._min_diff_loss is None or np.abs( self.logger.my_fantastic_logging['train_losses'][-1] - self.logger.my_fantastic_logging['val_losses'][-1] ) < self._min_diff_loss:
-            self._min_diff_loss = np.abs( self.logger.my_fantastic_logging['train_losses'][-1] - self.logger.my_fantastic_logging['val_losses'][-1] )
-            self.print_to_log_file(f"Yayy! New best low diff loss: {np.round(self._min_diff_loss, decimals=4)}")
-            self.save_checkpoint(join(self.output_folder, 'checkpoint_min_diff.pth'))
-            
 
         if self.local_rank == 0:
             self.logger.plot_progress_png(self.output_folder)
@@ -1228,6 +1316,7 @@ class nnUNetTrainer(object):
                     'logging': self.logger.get_checkpoint(),
                     '_best_ema': self._best_ema,
                     'current_epoch': self.current_epoch + 1,
+                    'current_iteration': self.current_iter,
                     'init_args': self.my_init_kwargs,
                     'trainer_name': self.__class__.__name__,
                     'inference_allowed_mirroring_axes': self.inference_allowed_mirroring_axes,
@@ -1360,7 +1449,7 @@ class nnUNetTrainer(object):
                 )
                 # for debug purposes
                 # export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager,
-                #      self.dataset_json, output_filename_truncated, save_probabilities)
+                #S    self.dataset_json, output_filename_truncated, save_probabilities)
 
                 # if needed, export the softmax prediction for the next stage
                 if next_stages is not None:
@@ -1427,44 +1516,57 @@ class nnUNetTrainer(object):
     def run_training(self):
         self.on_train_start()
 
+        for epoch in range(self.current_epoch, self.num_epochs):
+            self.on_epoch_start()
+
+            print("starting new epoch " + datetime.now().strftime("%H:%M:%S"))
+            
+            self.on_train_epoch_start()
+            train_outputs = []
+            for batch_id in range(self.num_iterations_per_epoch):
+                print(f"batch step {batch_id} of {len(range(self.num_iterations_per_epoch))}")
+                #train_outputs.append(self.train_step(next(self.dataloader_train)))
+                print("Loading in data " + datetime.now().strftime("%H:%M:%S"))
+                tmp_data = next(self.dataloader_train)
+                print("Finished loading in data " + datetime.now().strftime("%H:%M:%S"))
+                
+                print("running train step and appending outputs " + datetime.now().strftime("%H:%M:%S"))
+                train_outputs.append(self.train_step( tmp_data ))
+                
+            print("ending train step "  + datetime.now().strftime("%H:%M:%S"))
+            self.on_train_epoch_end(train_outputs)
+            
+            print("finished train step "  + datetime.now().strftime("%H:%M:%S"))
+            
+            print("starting validation "  + datetime.now().strftime("%H:%M:%S"))
+
+            with torch.no_grad():
+                self.on_validation_epoch_start()
+                val_outputs = []
+                for batch_id in range(self.num_val_iterations_per_epoch):
+                    print("validation step " + datetime.now().strftime("%H:%M:%S"))
+                    val_outputs.append(self.validation_step(next(self.dataloader_val)))
+                    
+                print("ending validation " + datetime.now().strftime("%H:%M:%S"))
+                self.on_validation_epoch_end(val_outputs)
+
+            print("ending epoch " + datetime.now().strftime("%H:%M:%S"))
+            self.on_epoch_end()
+
+        print("\n")
         
-        if self.early_stop_epoch == None: # standard nnUnet training
-            for epoch in range(self.current_epoch, self.num_epochs):
-                self.on_epoch_start()
-
-                self.on_train_epoch_start()
-                train_outputs = []
-                for batch_id in range(self.num_iterations_per_epoch):
-                    train_outputs.append(self.train_step(next(self.dataloader_train)))
-                self.on_train_epoch_end(train_outputs)
-
-                with torch.no_grad():
-                    self.on_validation_epoch_start()
-                    val_outputs = []
-                    for batch_id in range(self.num_val_iterations_per_epoch):
-                        val_outputs.append(self.validation_step(next(self.dataloader_val)))
-                    self.on_validation_epoch_end(val_outputs)
-
-                self.on_epoch_end()
-                
-        else: # our custom stopping -- help avoid overfitting, but doesn't effect learning rate
-            for epoch in range(self.current_epoch, self.early_stop_epoch):
-                self.on_epoch_start()
-
-                self.on_train_epoch_start()
-                train_outputs = []
-                for batch_id in range(self.num_iterations_per_epoch):
-                    train_outputs.append(self.train_step(next(self.dataloader_train)))
-                self.on_train_epoch_end(train_outputs)
-
-                with torch.no_grad():
-                    self.on_validation_epoch_start()
-                    val_outputs = []
-                    for batch_id in range(self.num_val_iterations_per_epoch):
-                        val_outputs.append(self.validation_step(next(self.dataloader_val)))
-                    self.on_validation_epoch_end(val_outputs)
-
-                self.on_epoch_end()
-                
-
         self.on_train_end()
+
+
+'''
+# debugging stuff for me
+if __name__ == "__main__":
+    planPath = "C:\\Users\\Ben Orkild\\Documents\\nnUnet_local_data\\nnUNet_preprocessed\\Dataset044_cascadeFineTuning\\nnUNetCascadePlans.json"
+    config = "cascade"
+    fold = 0
+    dataset_path = "C:\\Users\\Ben Orkild\\Documents\\nnUnet_local_data\\nnUNet_preprocessed\\Dataset044_cascadeFineTuning\\dataset.json"
+    
+    tst = semiSupervisednnUNetTrainer(load_json(planPath), config, fold, dataset_path)
+    
+    print(tst.get_training_transforms())
+'''

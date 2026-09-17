@@ -3,6 +3,15 @@ from torch import nn, Tensor
 import numpy as np
 
 
+class RobustCrossEntropyLoss_float_probs(nn.CrossEntropyLoss):
+    """
+    same as original below, but got rid of the if statement check, as target is now probabilities, represented as floats
+
+    input must be logits, not probabilities!
+    """
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        return super().forward(input, target)
+
 class RobustCrossEntropyLoss(nn.CrossEntropyLoss):
     """
     this is just a compatibility layer because my target tensor is float and has an extra dimension

@@ -39,3 +39,24 @@ def crop_to_nonzero(data, seg=None, nonzero_label=-1):
     return data, seg, bbox
 
 
+def crop_to_nonzero_seg_float(data, seg=None, nonzero_label=-1):
+    """
+
+    :param data:
+    :param seg:
+    :param nonzero_label: this will be written into the segmentation map
+    :return:
+    """
+    nonzero_mask = create_nonzero_mask(data)
+    bbox = get_bbox_from_mask(nonzero_mask)
+    slicer = bounding_box_to_slice(bbox)
+    nonzero_mask = nonzero_mask[slicer][None]
+    
+    slicer = (slice(None), ) + slicer
+    data = data[slicer]
+    if seg is not None:
+        seg = seg[slicer]
+        seg[(seg == 0) & (~nonzero_mask)] = nonzero_label
+    else:
+        seg = np.where(nonzero_mask, np.float32(0), np.float32(nonzero_label))
+    return data, seg, bbox
