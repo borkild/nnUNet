@@ -940,12 +940,6 @@ class adaptiveLabelTrainer(object):
             mod = mod._orig_mod
 
         mod.decoder.deep_supervision = enabled
-
-    
-    def convert_batch_label_one_hot(label: torch.tensor, prediction: torch.tensor):
-        label_onehot = torch.zeros(prediction.shape, device=prediction.device, dtype=torch.bool)
-        label_onehot.scatter_(1, label.long(), 1)
-        return label_onehot
     
     @staticmethod
     def adapt_label(label, prediction, alpha):
