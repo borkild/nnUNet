@@ -69,8 +69,10 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.training.data_augmentation.mask_input_to_seg import MoveInputMaskToSegParam
 from nnunetv2.training.data_augmentation.mask_input_to_data import MoveInputMaskBackToInput
 
+from nnunetv2.utilities.helpers import softmax_helper_dim1
 
-class nnUNetTrainer(object):
+
+class adaptiveLabelTrainer(object):
     def __init__(self, plans: dict, configuration: str, fold: int, dataset_json: dict,
                  device: torch.device = torch.device('cuda')):
         # From https://grugbrain.dev/. Worth a read ya big brains ;-)
@@ -939,6 +941,22 @@ class nnUNetTrainer(object):
 
         mod.decoder.deep_supervision = enabled
 
+    
+    def convert_batch_label_one_hot(label: torch.tensor, prediction: torch.tensor):
+        label_onehot = torch.zeros(prediction.shape, device=prediction.device, dtype=torch.bool)
+        label_onehot.scatter_(1, label.long(), 1)
+        return label_onehot
+    
+    @staticmethod
+    def adapt_label(label, prediction, alpha):
+        with torch.no_grad():
+            label_one_hot = torch.zeros_like(prediction, dtype=torch.float32)
+            label_one_hot.scatter_(1, label.long(), 1)
+
+            prediction_probs = torch.softmax(prediction.float(), dim=1)
+            return alpha * label_one_hot + (1 - alpha) * prediction_probs
+    
+    
     def on_train_start(self):
         if not self.was_initialized:
             self.initialize()
@@ -1036,7 +1054,13 @@ class nnUNetTrainer(object):
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
             # adjust target with prediction update
-            target = self.alpha*target + (1-self.alpha)*self.label_manager.apply_inference_nonlin(output)
+            if isinstance(output, (list, tuple)):
+                target = [
+                    self.adapt_label(label, prediction, self.alpha)
+                    for label, prediction in zip(target, output)
+                ]
+            else:
+                target = self.adapt_label(target, output, self.alpha)
             # del data
             l = self.loss(output, target)
 
